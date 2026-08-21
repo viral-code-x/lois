@@ -1,3 +1,5 @@
+#define _GNU_SOURCE
+
 #include "lexer.h"
 
 #include <ctype.h>
@@ -7,7 +9,7 @@
 
 static char *copy_text(const char *start, int length)
 {
-    char *result = malloc(length + 1);
+    char *result = malloc((size_t)length + 1);
 
     if (!result)
     {
@@ -15,7 +17,7 @@ static char *copy_text(const char *start, int length)
         exit(1);
     }
 
-    memcpy(result, start, length);
+    memcpy(result, start, (size_t)length);
     result[length] = '\0';
 
     return result;
@@ -25,20 +27,24 @@ static void add_token(
     TokenList *list,
     TokenType type,
     const char *text,
-    double number
+    int length,
+    double number,
+    int line,
+    int column
 )
 {
     if (list->count >= list->capacity)
     {
         list->capacity =
             list->capacity == 0
-            ? 32
-            : list->capacity * 2;
+                ? 128
+                : list->capacity * 2;
 
-        list->tokens = realloc(
-            list->tokens,
-            sizeof(Token) * list->capacity
-        );
+        list->tokens =
+            realloc(
+                list->tokens,
+                sizeof(Token) * list->capacity
+            );
 
         if (!list->tokens)
         {
@@ -47,358 +53,453 @@ static void add_token(
         }
     }
 
-    list->tokens[list->count].type = type;
+    Token *token =
+        &list->tokens[list->count++];
 
-    if (text)
-        list->tokens[list->count].text = strdup(text);
+    token->type = type;
+    token->number = number;
+    token->line = line;
+    token->column = column;
+
+    if (text && length > 0)
+        token->text =
+            copy_text(text, length);
     else
-        list->tokens[list->count].text = NULL;
+        token->text = NULL;
+}
 
-    list->tokens[list->count].number = number;
+static int is_word_start(char c)
+{
+    return
+        isalpha((unsigned char)c) ||
+        c == '_';
+}
 
-    list->count++;
+static int is_word_char(char c)
+{
+    return
+        isalnum((unsigned char)c) ||
+        c == '_';
 }
 
 TokenList lexer_tokenize(const char *source)
 {
     TokenList list = {0};
 
-    int i = 0;
+    const char *p = source;
 
-    while (source[i] != '\0')
+    int line = 1;
+    int column = 1;
+
+    int block_comment = 0;
+
+    while (*p)
     {
-        char c = source[i];
+        char c = *p;
 
-        /* Ignore whitespace */
-        if (isspace((unsigned char)c))
+        /*
+         * Multiline comment:
+         *
+         * [
+         *     comment
+         * ]
+         */
+        if (!block_comment &&
+            c == '[')
         {
-            i++;
+            block_comment = 1;
+
+            p++;
+            column++;
+
             continue;
         }
 
-        /* Comments start with # */
-        if (c == '#')
+        if (block_comment)
         {
-            while (
-                source[i] != '\0' &&
-                source[i] != '\n'
-            )
+            if (c == ']')
             {
-                i++;
-            }
+                block_comment = 0;
 
-            continue;
-        }
-
-        /* Full stop */
-        if (c == '.')
-        {
-            /*
-             * If the dot is followed by a number,
-             * it may be part of a decimal number.
-             */
-            if (isdigit((unsigned char)source[i + 1]))
-            {
-                int start = i;
-
-                i++;
-
-                while (
-                    isdigit((unsigned char)source[i])
-                )
-                {
-                    i++;
-                }
-
-                char *text = copy_text(
-                    source + start,
-                    i - start
-                );
-
-                add_token(
-                    &list,
-                    TOKEN_NUMBER,
-                    text,
-                    atof(text)
-                );
-
-                free(text);
+                p++;
+                column++;
 
                 continue;
             }
 
+            if (c == '\n')
+            {
+                p++;
+                line++;
+                column = 1;
+            }
+            else
+            {
+                p++;
+                column++;
+            }
+
+            continue;
+        }
+
+        /*
+         * One-line comment:
+         *
+         * note: hello world
+         */
+        if (
+            (c == 'n' || c == 'N') &&
+            strncasecmp(p, "note:", 5) == 0
+        )
+        {
+            while (*p && *p != '\n')
+            {
+                p++;
+                column++;
+            }
+
+            continue;
+        }
+
+        /*
+         * Spaces outside strings are separators.
+         */
+        if (
+            c == ' ' ||
+            c == '\t' ||
+            c == '\r'
+        )
+        {
+            p++;
+            column++;
+
+            continue;
+        }
+
+        /*
+         * Newline is meaningful.
+         */
+        if (c == '\n')
+        {
             add_token(
                 &list,
-                TOKEN_DOT,
-                ".",
-                0
+                TOKEN_NEWLINE,
+                NULL,
+                0,
+                0,
+                line,
+                column
             );
 
-            i++;
+            p++;
+            line++;
+            column = 1;
 
             continue;
         }
 
-        /* Arithmetic operators */
-        if (c == '+')
-        {
-            add_token(&list, TOKEN_PLUS, "+", 0);
-            i++;
-            continue;
-        }
-
-        if (c == '-')
-        {
-            add_token(&list, TOKEN_MINUS, "-", 0);
-            i++;
-            continue;
-        }
-
-        if (c == '*')
-        {
-            add_token(&list, TOKEN_STAR, "*", 0);
-            i++;
-            continue;
-        }
-
-        if (c == '/')
-        {
-            add_token(&list, TOKEN_SLASH, "/", 0);
-            i++;
-            continue;
-        }
-
-        /* Greater than */
-        if (c == '>')
-        {
-            if (source[i + 1] == '=')
-            {
-                add_token(
-                    &list,
-                    TOKEN_GREATER_EQUAL,
-                    ">=",
-                    0
-                );
-
-                i += 2;
-            }
-            else
-            {
-                add_token(
-                    &list,
-                    TOKEN_GREATER,
-                    ">",
-                    0
-                );
-
-                i++;
-            }
-
-            continue;
-        }
-
-        /* Less than */
-        if (c == '<')
-        {
-            if (source[i + 1] == '=')
-            {
-                add_token(
-                    &list,
-                    TOKEN_LESS_EQUAL,
-                    "<=",
-                    0
-                );
-
-                i += 2;
-            }
-            else
-            {
-                add_token(
-                    &list,
-                    TOKEN_LESS,
-                    "<",
-                    0
-                );
-
-                i++;
-            }
-
-            continue;
-        }
-
-        /* Equal */
-        if (c == '=')
-        {
-            if (source[i + 1] == '=')
-            {
-                add_token(
-                    &list,
-                    TOKEN_EQUAL_EQUAL,
-                    "==",
-                    0
-                );
-
-                i += 2;
-            }
-            else
-            {
-                fprintf(
-                    stderr,
-                    "LOIS: unexpected '='\n"
-                );
-
-                i++;
-            }
-
-            continue;
-        }
-
-        /* Not equal */
-        if (c == '!')
-        {
-            if (source[i + 1] == '=')
-            {
-                add_token(
-                    &list,
-                    TOKEN_NOT_EQUAL,
-                    "!=",
-                    0
-                );
-
-                i += 2;
-            }
-            else
-            {
-                fprintf(
-                    stderr,
-                    "LOIS: unexpected '!'\n"
-                );
-
-                i++;
-            }
-
-            continue;
-        }
-
-        /* Quoted literal string */
+        /*
+         * Strings.
+         *
+         * Everything inside quotes is preserved,
+         * including spaces and newlines.
+         */
         if (c == '"')
         {
-            i++;
+            int start_line = line;
+            int start_column = column;
 
-            int start = i;
+            p++;
+            column++;
 
-            while (
-                source[i] != '\0' &&
-                source[i] != '"'
-            )
+            const char *start = p;
+
+            while (*p && *p != '"')
             {
-                i++;
+                if (*p == '\n')
+                {
+                    line++;
+                    column = 1;
+                    p++;
+                }
+                else
+                {
+                    column++;
+                    p++;
+                }
             }
 
-            char *text = copy_text(
-                source + start,
-                i - start
-            );
+            if (*p != '"')
+            {
+                fprintf(
+                    stderr,
+                    "LOIS: unterminated string at %d:%d\n",
+                    start_line,
+                    start_column
+                );
+
+                break;
+            }
 
             add_token(
                 &list,
                 TOKEN_STRING,
-                text,
-                0
+                start,
+                (int)(p - start),
+                0,
+                start_line,
+                start_column
             );
 
-            free(text);
-
-            if (source[i] == '"')
-                i++;
+            p++;
+            column++;
 
             continue;
         }
 
-        /* Number */
-        if (isdigit((unsigned char)c))
-        {
-            int start = i;
-            int has_dot = 0;
-
-            while (
-                isdigit((unsigned char)source[i]) ||
-                (
-                    source[i] == '.' &&
-                    !has_dot
-                )
+        /*
+         * Number.
+         */
+        if (
+            isdigit((unsigned char)c) ||
+            (
+                c == '.' &&
+                isdigit((unsigned char)p[1])
             )
-            {
-                if (source[i] == '.')
-                    has_dot = 1;
+        )
+        {
+            char *end;
 
-                i++;
-            }
+            double number =
+                strtod(p, &end);
 
-            char *text = copy_text(
-                source + start,
-                i - start
-            );
+            int length =
+                (int)(end - p);
 
             add_token(
                 &list,
                 TOKEN_NUMBER,
-                text,
-                atof(text)
+                p,
+                length,
+                number,
+                line,
+                column
             );
 
-            free(text);
+            p = end;
+            column += length;
 
             continue;
         }
 
-        /* Words / identifiers */
-        if (
-            isalpha((unsigned char)c) ||
-            c == '_'
-        )
+        /*
+         * Words.
+         */
+        if (is_word_start(c))
         {
-            int start = i;
+            const char *start = p;
 
-            while (
-                isalnum((unsigned char)source[i]) ||
-                source[i] == '_'
-            )
+            while (is_word_char(*p))
             {
-                i++;
+                p++;
+                column++;
             }
-
-            char *text = copy_text(
-                source + start,
-                i - start
-            );
 
             add_token(
                 &list,
                 TOKEN_WORD,
-                text,
-                0
+                start,
+                (int)(p - start),
+                0,
+                line,
+                column
             );
 
-            free(text);
+            continue;
+        }
+
+        /*
+         * Parentheses.
+         */
+        if (c == '(')
+        {
+            add_token(
+                &list,
+                TOKEN_LPAREN,
+                p,
+                1,
+                0,
+                line,
+                column
+            );
+
+            p++;
+            column++;
+
+            continue;
+        }
+
+        if (c == ')')
+        {
+            add_token(
+                &list,
+                TOKEN_RPAREN,
+                p,
+                1,
+                0,
+                line,
+                column
+            );
+
+            p++;
+            column++;
+
+            continue;
+        }
+
+        /*
+         * Comma.
+         */
+        if (c == ',')
+        {
+            add_token(
+                &list,
+                TOKEN_COMMA,
+                p,
+                1,
+                0,
+                line,
+                column
+            );
+
+            p++;
+            column++;
+
+            continue;
+        }
+
+        /*
+         * Operators.
+         */
+        TokenType type = TOKEN_EOF;
+        int length = 1;
+
+        if (c == '+')
+            type = TOKEN_PLUS;
+
+        else if (c == '-')
+            type = TOKEN_MINUS;
+
+        else if (c == '*')
+            type = TOKEN_STAR;
+
+        else if (c == '/')
+            type = TOKEN_SLASH;
+
+        else if (c == '%')
+            type = TOKEN_PERCENT;
+
+        else if (c == '^')
+            type = TOKEN_POWER;
+
+        else if (c == '=')
+        {
+            if (p[1] == '=')
+            {
+                type = TOKEN_EQUAL_EQUAL;
+                length = 2;
+            }
+            else
+            {
+                type = TOKEN_EQUAL;
+            }
+        }
+
+        else if (c == '>')
+        {
+            if (p[1] == '=')
+            {
+                type = TOKEN_GREATER_EQUAL;
+                length = 2;
+            }
+            else
+            {
+                type = TOKEN_GREATER;
+            }
+        }
+
+        else if (c == '<')
+        {
+            if (p[1] == '=')
+            {
+                type = TOKEN_LESS_EQUAL;
+                length = 2;
+            }
+            else
+            {
+                type = TOKEN_LESS;
+            }
+        }
+
+        else if (c == '!')
+        {
+            if (p[1] == '=')
+            {
+                type = TOKEN_NOT_EQUAL;
+                length = 2;
+            }
+            else
+            {
+                type = TOKEN_BANG;
+            }
+        }
+
+        if (type != TOKEN_EOF)
+        {
+            add_token(
+                &list,
+                type,
+                p,
+                length,
+                0,
+                line,
+                column
+            );
+
+            p += length;
+            column += length;
 
             continue;
         }
 
         fprintf(
             stderr,
-            "LOIS lexer: unknown character '%c'\n",
-            c
+            "LOIS: unexpected character '%c' at %d:%d\n",
+            c,
+            line,
+            column
         );
 
-        i++;
+        p++;
+        column++;
+    }
+
+    if (block_comment)
+    {
+        fprintf(
+            stderr,
+            "LOIS: unterminated multiline comment\n"
+        );
     }
 
     add_token(
         &list,
         TOKEN_EOF,
         NULL,
-        0
+        0,
+        0,
+        line,
+        column
     );
 
     return list;
@@ -410,9 +511,7 @@ void lexer_free(TokenList *list)
         return;
 
     for (int i = 0; i < list->count; i++)
-    {
         free(list->tokens[i].text);
-    }
 
     free(list->tokens);
 

@@ -3,16 +3,20 @@
 
 #include "lexer.h"
 
-typedef enum {
+typedef enum
+{
     EXPR_LITERAL,
     EXPR_NUMBER,
     EXPR_VARIABLE,
-    EXPR_BINARY
+    EXPR_BINARY,
+    EXPR_UNARY,
+    EXPR_CALL
 } ExprType;
 
 typedef struct Expr Expr;
 
-struct Expr {
+struct Expr
+{
     ExprType type;
 
     char *text;
@@ -22,31 +26,74 @@ struct Expr {
 
     Expr *left;
     Expr *right;
+
+    Expr **arguments;
+    int argument_count;
 };
 
-typedef enum {
+typedef enum
+{
     STMT_ASSIGN,
-    STMT_OUTPUT,
     STMT_INPUT,
-    STMT_IF
+    STMT_OUTPUT,
+
+    STMT_IF,
+    STMT_ELSE_IF,
+    STMT_ELSE,
+
+    STMT_WHILE,
+    STMT_FOR,
+
+    STMT_FUNCTION,
+
+    STMT_BREAK
 } StatementType;
 
 typedef struct Statement Statement;
 
-struct Statement {
+struct Statement
+{
     StatementType type;
 
     char *name;
+
+    /*
+     * Used for:
+     *
+     * num
+     * upto
+     * etc.
+     */
     char *extra;
 
     Expr *expression;
+
     Expr *condition;
 
+    /*
+     * Function parameter names.
+     */
+    char **parameters;
+    int parameter_count;
+
+    /*
+     * Function body / if body / loop body.
+     */
     Statement *body;
+
+    /*
+     * Else / else-if chain.
+     */
+    Statement *next_branch;
+
+    /*
+     * Normal program linked list.
+     */
     Statement *next;
 };
 
 Statement *parser_parse(TokenList *tokens);
+
 void parser_free(Statement *statement);
 
 #endif

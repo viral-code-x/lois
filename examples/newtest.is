@@ -1,0 +1,24 @@
+name is Alex
+
+output is hello name
+output is "hello     name"
+output is "hello
+name"
+
+age = 13
+output is age
+
+if age == 13 then output is age is thirteen
+else output is wrong
+
+x = 3
+output is x + 2
+
+note:
+this should be ignored
+
+[ 
+this should also
+be ignored
+]
+
