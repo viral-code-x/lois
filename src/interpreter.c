@@ -108,11 +108,23 @@ static void print_value(Value *value)
     {
         print_number(value->number);
     }
+    else if (value->type == VALUE_BOOL)
+    {
+        printf(
+            "%s",
+            value->number != 0
+                ? "True"
+                : "False"
+        );
+    }
 }
 
 static int truthy(Value *value)
 {
     if (value->type == VALUE_NUMBER)
+        return value->number != 0;
+
+    if (value->type == VALUE_BOOL)
         return value->number != 0;
 
     if (value->type == VALUE_STRING)
@@ -131,6 +143,9 @@ static Value evaluate(Expr *expr)
 
     if (expr->type == EXPR_NUMBER)
         return value_number(expr->number);
+
+    if (expr->type == EXPR_BOOLEAN)
+        return value_bool((int)expr->number);
 
     if (expr->type == EXPR_VARIABLE)
     {
@@ -169,17 +184,16 @@ static Value evaluate(Expr *expr)
         }
 
         /*
-         * TOKEN_NOT_EQUAL is being used internally
-         * for the "not" unary operator.
+         * Unary Boolean NOT.
          */
-        if (expr->operator == TOKEN_NOT_EQUAL)
+        if (expr->operator == TOKEN_NOT)
         {
-            double result =
+            int result =
                 truthy(&right) ? 0 : 1;
 
             value_free(&right);
 
-            return value_number(result);
+            return value_bool(result);
         }
 
         value_free(&right);
@@ -216,7 +230,7 @@ static Value evaluate(Expr *expr)
             )
             {
                 value_free(&left);
-                return value_number(0);
+                return value_bool(0);
             }
 
             if (
@@ -225,7 +239,7 @@ static Value evaluate(Expr *expr)
             )
             {
                 value_free(&left);
-                return value_number(1);
+                return value_bool(1);
             }
 
             value_free(&left);
@@ -238,10 +252,9 @@ static Value evaluate(Expr *expr)
 
             value_free(&right);
 
-            if (expr->operator == TOKEN_AND)
-                return value_number(right_true ? 1 : 0);
-
-            return value_number(right_true ? 1 : 0);
+            return value_bool(
+                right_true ? 1 : 0
+            );
         }
 
         Value left =
@@ -321,37 +334,106 @@ static Value evaluate(Expr *expr)
         }
 
         /*
-         * Numeric operations.
+         * Numeric / boolean operations.
+         *
+         * Booleans behave numerically internally:
+         *
+         * True  = 1
+         * False = 0
+         *
+         * But comparison results are returned as
+         * actual VALUE_BOOL values.
          */
         if (
-            left.type == VALUE_NUMBER &&
-            right.type == VALUE_NUMBER
+            (
+                left.type == VALUE_NUMBER ||
+                left.type == VALUE_BOOL
+            ) &&
+            (
+                right.type == VALUE_NUMBER ||
+                right.type == VALUE_BOOL
+            )
         )
         {
+            double l =
+                left.number;
+
+            double r =
+                right.number;
+
             double result = 0;
 
             switch (expr->operator)
             {
+                /*
+                 * Arithmetic is only valid for numbers.
+                 */
                 case TOKEN_PLUS:
-                    result =
-                        left.number +
-                        right.number;
-                    break;
+                    if (
+                        left.type != VALUE_NUMBER ||
+                        right.type != VALUE_NUMBER
+                    )
+                    {
+                        value_free(&left);
+                        value_free(&right);
+                        return value_none();
+                    }
+
+                    result = l + r;
+
+                    value_free(&left);
+                    value_free(&right);
+
+                    return value_number(result);
 
                 case TOKEN_MINUS:
-                    result =
-                        left.number -
-                        right.number;
-                    break;
+                    if (
+                        left.type != VALUE_NUMBER ||
+                        right.type != VALUE_NUMBER
+                    )
+                    {
+                        value_free(&left);
+                        value_free(&right);
+                        return value_none();
+                    }
+
+                    result = l - r;
+
+                    value_free(&left);
+                    value_free(&right);
+
+                    return value_number(result);
 
                 case TOKEN_STAR:
-                    result =
-                        left.number *
-                        right.number;
-                    break;
+                    if (
+                        left.type != VALUE_NUMBER ||
+                        right.type != VALUE_NUMBER
+                    )
+                    {
+                        value_free(&left);
+                        value_free(&right);
+                        return value_none();
+                    }
+
+                    result = l * r;
+
+                    value_free(&left);
+                    value_free(&right);
+
+                    return value_number(result);
 
                 case TOKEN_SLASH:
-                    if (right.number == 0)
+                    if (
+                        left.type != VALUE_NUMBER ||
+                        right.type != VALUE_NUMBER
+                    )
+                    {
+                        value_free(&left);
+                        value_free(&right);
+                        return value_none();
+                    }
+
+                    if (r == 0)
                     {
                         fprintf(
                             stderr,
@@ -364,14 +446,25 @@ static Value evaluate(Expr *expr)
                         return value_none();
                     }
 
-                    result =
-                        left.number /
-                        right.number;
+                    result = l / r;
 
-                    break;
+                    value_free(&left);
+                    value_free(&right);
+
+                    return value_number(result);
 
                 case TOKEN_PERCENT:
-                    if (right.number == 0)
+                    if (
+                        left.type != VALUE_NUMBER ||
+                        right.type != VALUE_NUMBER
+                    )
+                    {
+                        value_free(&left);
+                        value_free(&right);
+                        return value_none();
+                    }
+
+                    if (r == 0)
                     {
                         fprintf(
                             stderr,
@@ -384,62 +477,72 @@ static Value evaluate(Expr *expr)
                         return value_none();
                     }
 
-                    result =
-                        fmod(
-                            left.number,
-                            right.number
-                        );
+                    result = fmod(l, r);
 
-                    break;
+                    value_free(&left);
+                    value_free(&right);
+
+                    return value_number(result);
 
                 case TOKEN_CARET:
-                    result =
-                        pow(
-                            left.number,
-                            right.number
-                        );
+                    if (
+                        left.type != VALUE_NUMBER ||
+                        right.type != VALUE_NUMBER
+                    )
+                    {
+                        value_free(&left);
+                        value_free(&right);
+                        return value_none();
+                    }
 
-                    break;
+                    result = pow(l, r);
 
+                    value_free(&left);
+                    value_free(&right);
+
+                    return value_number(result);
+
+                /*
+                 * Comparisons.
+                 */
                 case TOKEN_GREATER:
-                    result =
-                        left.number >
-                        right.number;
-
+                    result = l > r;
                     break;
 
                 case TOKEN_LESS:
-                    result =
-                        left.number <
-                        right.number;
-
+                    result = l < r;
                     break;
 
                 case TOKEN_GREATER_EQUAL:
-                    result =
-                        left.number >=
-                        right.number;
-
+                    result = l >= r;
                     break;
 
                 case TOKEN_LESS_EQUAL:
-                    result =
-                        left.number <=
-                        right.number;
-
+                    result = l <= r;
                     break;
 
                 case TOKEN_EQUAL_EQUAL:
-                    result =
-                        left.number ==
-                        right.number;
-
+                    result = l == r;
                     break;
 
                 case TOKEN_NOT_EQUAL:
+                    result = l != r;
+                    break;
+
+                /*
+                 * Logical AND / OR.
+                 */
+                case TOKEN_AND:
                     result =
-                        left.number !=
-                        right.number;
+                        (l != 0) &&
+                        (r != 0);
+
+                    break;
+
+                case TOKEN_OR:
+                    result =
+                        (l != 0) ||
+                        (r != 0);
 
                     break;
 
@@ -453,7 +556,58 @@ static Value evaluate(Expr *expr)
             value_free(&left);
             value_free(&right);
 
-            return value_number(result);
+            return value_bool(
+                result != 0
+            );
+        }
+
+        /*
+         * Boolean equality.
+         *
+         * True and False are real boolean values.
+         * They are compared as booleans, not strings.
+         */
+        if (
+            left.type == VALUE_BOOL &&
+            right.type == VALUE_BOOL
+        )
+        {
+            int left_bool =
+                left.number != 0;
+
+            int right_bool =
+                right.number != 0;
+
+            int result;
+
+            if (
+                expr->operator ==
+                TOKEN_EQUAL_EQUAL
+            )
+            {
+                result =
+                    left_bool == right_bool;
+            }
+            else if (
+                expr->operator ==
+                TOKEN_NOT_EQUAL
+            )
+            {
+                result =
+                    left_bool != right_bool;
+            }
+            else
+            {
+                value_free(&left);
+                value_free(&right);
+
+                return value_none();
+            }
+
+            value_free(&left);
+            value_free(&right);
+
+            return value_bool(result);
         }
 
         /*

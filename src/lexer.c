@@ -284,6 +284,21 @@ TokenList lexer_tokenize(const char *source)
              */
             if (
                 length == 3 &&
+                strncasecmp(start, "not", 3) == 0
+            )
+            {
+                add_token(
+                    &list,
+                    TOKEN_NOT,
+                    start,
+                    length,
+                    0,
+                    line,
+                    column
+                );
+            }
+            else if (
+                length == 3 &&
                 strncasecmp(start, "and", 3) == 0
             )
             {

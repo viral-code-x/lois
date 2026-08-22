@@ -39,6 +39,17 @@ Value value_number(double number)
     return value;
 }
 
+Value value_bool(int boolean)
+{
+    Value value;
+
+    value.type = VALUE_BOOL;
+    value.number = boolean ? 1 : 0;
+    value.string = NULL;
+
+    return value;
+}
+
 Value value_none(void)
 {
     Value value;
@@ -57,6 +68,9 @@ Value value_copy(const Value *value)
 
     if (value->type == VALUE_NUMBER)
         return value_number(value->number);
+
+    if (value->type == VALUE_BOOL)
+        return value_bool((int)value->number);
 
     return value_none();
 }

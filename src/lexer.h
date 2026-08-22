@@ -24,6 +24,7 @@ typedef enum
     TOKEN_LESS_EQUAL,
     TOKEN_EQUAL_EQUAL,
     TOKEN_NOT_EQUAL,
+    TOKEN_NOT,
 
     TOKEN_ASSIGN,
 

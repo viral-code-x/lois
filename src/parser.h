@@ -7,6 +7,7 @@ typedef enum
 {
     EXPR_LITERAL,
     EXPR_NUMBER,
+    EXPR_BOOLEAN,
     EXPR_VARIABLE,
     EXPR_BINARY,
     EXPR_UNARY

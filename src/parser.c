@@ -138,10 +138,39 @@ static int precedence(TokenType type)
 static Expr *parse_expression(int minimum_precedence);
 static Expr *parse_primary(void);
 
+static int word_exact(const char *word)
+{
+    return
+        current()->type == TOKEN_WORD &&
+        strcmp(current()->text, word) == 0;
+}
+
 static Expr *parse_primary(void)
 {
     Token *token =
         current();
+
+    /*
+     * Unary Boolean NOT.
+     *
+     * "not" is lexed as TOKEN_NOT, so it must be
+     * handled before TOKEN_WORD.
+     */
+    if (token->type == TOKEN_NOT)
+    {
+        advance();
+
+        Expr *right =
+            parse_primary();
+
+        if (!right)
+            return NULL;
+
+        return make_unary(
+            right,
+            TOKEN_NOT
+        );
+    }
 
     /*
      * String literal.
@@ -182,20 +211,34 @@ static Expr *parse_primary(void)
      */
     if (token->type == TOKEN_WORD)
     {
-        if (word_is("not"))
+        /*
+         * Boolean literals are deliberately case-sensitive.
+         *
+         * True / False  -> boolean
+         * true / false  -> ordinary words
+         */
+        if (word_exact("True"))
         {
+            Expr *expr =
+                new_expr(EXPR_BOOLEAN);
+
+            expr->number = 1;
+
             advance();
 
-            Expr *right =
-                parse_primary();
+            return expr;
+        }
 
-            if (!right)
-                return NULL;
+        if (word_exact("False"))
+        {
+            Expr *expr =
+                new_expr(EXPR_BOOLEAN);
 
-            return make_unary(
-                right,
-                TOKEN_NOT_EQUAL
-            );
+            expr->number = 0;
+
+            advance();
+
+            return expr;
         }
 
         Expr *expr =
@@ -273,13 +316,13 @@ static Expr *parse_expression(int minimum_precedence)
          */
         if (word_is("and"))
         {
-            operator = TOKEN_STAR;
-            p = 5;
+            operator = TOKEN_AND;
+            p = 3;
         }
         else if (word_is("or"))
         {
-            operator = TOKEN_PLUS;
-            p = 4;
+            operator = TOKEN_OR;
+            p = 2;
         }
 
         if (p < minimum_precedence)
