@@ -1,0 +1,23 @@
+age = 10
+
+if age >= 18
+then output is adult
+but if age >= 13
+then output is teen
+else output is baby
+
+age = 15
+
+if age >= 18
+then output is adult
+but if age >= 13
+then output is teen
+else output is baby
+
+age = 20
+
+if age >= 18
+then output is adult
+but if age >= 13
+then output is teen
+else output is baby

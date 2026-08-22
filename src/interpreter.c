@@ -9,7 +9,7 @@
 #include <string.h>
 #include <strings.h>
 
-#define MAX_VARIABLES 512
+#define MAX_VARIABLES 256
 
 typedef struct
 {
@@ -21,13 +21,9 @@ typedef struct
 static Variable variables[MAX_VARIABLES];
 static int variable_count = 0;
 
-static int loop_break = 0;
-
 static Variable *find_variable(const char *name)
 {
-    for (int i = 0;
-         i < variable_count;
-         i++)
+    for (int i = 0; i < variable_count; i++)
     {
         if (
             strcasecmp(
@@ -54,9 +50,7 @@ static void set_variable(
 
     if (existing)
     {
-        value_free(
-            &existing->value
-        );
+        value_free(&existing->value);
 
         existing->value = value;
         existing->is_num = is_num;
@@ -86,45 +80,9 @@ static void set_variable(
     variable_count++;
 }
 
-static double value_number_or_zero(
-    Value *value
-)
-{
-    if (
-        value &&
-        value->type == VALUE_NUMBER
-    )
-    {
-        return value->number;
-    }
-
-    return 0;
-}
-
-static int truthy(Value *value)
-{
-    if (!value)
-        return 0;
-
-    if (value->type == VALUE_NUMBER)
-        return value->number != 0;
-
-    if (value->type == VALUE_STRING)
-        return value->string &&
-               value->string[0] != '\0';
-
-    return 0;
-}
-
 static void print_number(double number)
 {
-    /*
-     * Avoid ugly 13.000000 output.
-     */
-    if (
-        number ==
-        (long long)number
-    )
+    if (number == (long long)number)
     {
         printf(
             "%lld",
@@ -142,150 +100,25 @@ static void print_number(double number)
 
 static void print_value(Value *value)
 {
-    if (!value)
-        return;
-
     if (value->type == VALUE_STRING)
     {
-        printf(
-            "%s",
-            value->string
-                ? value->string
-                : ""
-        );
+        printf("%s", value->string);
     }
     else if (value->type == VALUE_NUMBER)
     {
-        print_number(
-            value->number
-        );
+        print_number(value->number);
     }
 }
 
-static Value evaluate(Expr *expr);
-
-static Value evaluate_call(Expr *expr)
+static int truthy(Value *value)
 {
-    if (!expr || !expr->text)
-        return value_none();
+    if (value->type == VALUE_NUMBER)
+        return value->number != 0;
 
-    const char *name =
-        expr->text;
+    if (value->type == VALUE_STRING)
+        return value->string[0] != '\0';
 
-    /*
-     * pi
-     */
-    if (
-        strcasecmp(name, "pi") == 0 &&
-        expr->argument_count == 0
-    )
-    {
-        return value_number(
-            M_PI
-        );
-    }
-
-    /*
-     * Evaluate first argument.
-     */
-    Value argument =
-        value_none();
-
-    if (expr->argument_count > 0)
-    {
-        argument =
-            evaluate(
-                expr->arguments[0]
-            );
-    }
-
-    double x =
-        value_number_or_zero(
-            &argument
-        );
-
-    /*
-     * sin
-     */
-    if (
-        strcasecmp(name, "sin") == 0
-    )
-    {
-        value_free(&argument);
-
-        return value_number(
-            sin(x)
-        );
-    }
-
-    /*
-     * cos
-     */
-    if (
-        strcasecmp(name, "cos") == 0
-    )
-    {
-        value_free(&argument);
-
-        return value_number(
-            cos(x)
-        );
-    }
-
-    /*
-     * log = base-10 logarithm.
-     */
-    if (
-        strcasecmp(name, "log") == 0
-    )
-    {
-        value_free(&argument);
-
-        return value_number(
-            log10(x)
-        );
-    }
-
-    /*
-     * ln = natural logarithm.
-     */
-    if (
-        strcasecmp(name, "ln") == 0
-    )
-    {
-        value_free(&argument);
-
-        return value_number(
-            log(x)
-        );
-    }
-
-    /*
-     * int(x) = integral/truncate.
-     */
-    if (
-        strcasecmp(name, "int") == 0
-    )
-    {
-        value_free(&argument);
-
-        return value_number(
-            trunc(x)
-        );
-    }
-
-    value_free(&argument);
-
-    /*
-     * Unknown function for now.
-     */
-    fprintf(
-        stderr,
-        "LOIS: unknown function '%s'\n",
-        name
-    );
-
-    return value_none();
+    return 0;
 }
 
 static Value evaluate(Expr *expr)
@@ -293,53 +126,20 @@ static Value evaluate(Expr *expr)
     if (!expr)
         return value_none();
 
-    /*
-     * Literal.
-     */
-    if (
-        expr->type ==
-        EXPR_LITERAL
-    )
-    {
-        return value_string(
-            expr->text
-        );
-    }
+    if (expr->type == EXPR_LITERAL)
+        return value_string(expr->text);
 
-    /*
-     * Number.
-     */
-    if (
-        expr->type ==
-        EXPR_NUMBER
-    )
-    {
-        return value_number(
-            expr->number
-        );
-    }
+    if (expr->type == EXPR_NUMBER)
+        return value_number(expr->number);
 
-    /*
-     * Variable.
-     */
-    if (
-        expr->type ==
-        EXPR_VARIABLE
-    )
+    if (expr->type == EXPR_VARIABLE)
     {
         Variable *variable =
-            find_variable(
-                expr->text
-            );
+            find_variable(expr->text);
 
         if (!variable)
         {
-            /*
-             * Unknown words are strings.
-             */
-            return value_string(
-                expr->text
-            );
+            return value_string(expr->text);
         }
 
         return value_copy(
@@ -347,62 +147,39 @@ static Value evaluate(Expr *expr)
         );
     }
 
-    /*
-     * Function call.
-     */
-    if (
-        expr->type ==
-        EXPR_CALL
-    )
-    {
-        return evaluate_call(
-            expr
-        );
-    }
-
-    /*
-     * Unary.
-     */
-    if (
-        expr->type ==
-        EXPR_UNARY
-    )
+    if (expr->type == EXPR_UNARY)
     {
         Value right =
-            evaluate(
-                expr->right
-            );
+            evaluate(expr->right);
 
-        if (
-            expr->operator ==
-            TOKEN_BANG
-        )
+        if (expr->operator == TOKEN_MINUS)
         {
-            int result =
-                !truthy(&right);
+            if (right.type != VALUE_NUMBER)
+            {
+                value_free(&right);
+                return value_none();
+            }
+
+            double result =
+                -right.number;
 
             value_free(&right);
 
-            return value_number(
-                result
-            );
+            return value_number(result);
         }
 
-        if (
-            expr->operator ==
-            TOKEN_MINUS
-        )
+        /*
+         * TOKEN_NOT_EQUAL is being used internally
+         * for the "not" unary operator.
+         */
+        if (expr->operator == TOKEN_NOT_EQUAL)
         {
             double result =
-                -value_number_or_zero(
-                    &right
-                );
+                truthy(&right) ? 0 : 1;
 
             value_free(&right);
 
-            return value_number(
-                result
-            );
+            return value_number(result);
         }
 
         value_free(&right);
@@ -410,14 +187,63 @@ static Value evaluate(Expr *expr)
         return value_none();
     }
 
-    /*
-     * Binary expression.
-     */
-    if (
-        expr->type ==
-        EXPR_BINARY
-    )
+    if (expr->type == EXPR_BINARY)
     {
+        /*
+         * Logical operators.
+         *
+         * Always return numeric boolean values:
+         * 1 = true
+         * 0 = false
+         */
+        if (
+            expr->operator == TOKEN_AND ||
+            expr->operator == TOKEN_OR
+        )
+        {
+            Value left =
+                evaluate(expr->left);
+
+            /*
+             * Short-circuit AND/OR.
+             */
+            int left_true =
+                truthy(&left);
+
+            if (
+                expr->operator == TOKEN_AND &&
+                !left_true
+            )
+            {
+                value_free(&left);
+                return value_number(0);
+            }
+
+            if (
+                expr->operator == TOKEN_OR &&
+                left_true
+            )
+            {
+                value_free(&left);
+                return value_number(1);
+            }
+
+            value_free(&left);
+
+            Value right =
+                evaluate(expr->right);
+
+            int right_true =
+                truthy(&right);
+
+            value_free(&right);
+
+            if (expr->operator == TOKEN_AND)
+                return value_number(right_true ? 1 : 0);
+
+            return value_number(right_true ? 1 : 0);
+        }
+
         Value left =
             evaluate(expr->left);
 
@@ -426,25 +252,21 @@ static Value evaluate(Expr *expr)
 
         /*
          * String concatenation.
+         *
+         * Adjacent output pieces use + internally.
          */
         if (
-            expr->operator ==
-                TOKEN_PLUS &&
+            expr->operator == TOKEN_PLUS &&
             (
-                left.type ==
-                    VALUE_STRING ||
-                right.type ==
-                    VALUE_STRING
+                left.type == VALUE_STRING ||
+                right.type == VALUE_STRING
             )
         )
         {
-            char left_text[4096];
-            char right_text[4096];
+            char left_text[2048];
+            char right_text[2048];
 
-            if (
-                left.type ==
-                VALUE_STRING
-            )
+            if (left.type == VALUE_STRING)
             {
                 snprintf(
                     left_text,
@@ -463,10 +285,7 @@ static Value evaluate(Expr *expr)
                 );
             }
 
-            if (
-                right.type ==
-                VALUE_STRING
-            )
+            if (right.type == VALUE_STRING)
             {
                 snprintf(
                     right_text,
@@ -485,7 +304,7 @@ static Value evaluate(Expr *expr)
                 );
             }
 
-            char result[8192];
+            char result[4096];
 
             snprintf(
                 result,
@@ -498,47 +317,41 @@ static Value evaluate(Expr *expr)
             value_free(&left);
             value_free(&right);
 
-            return value_string(
-                result
-            );
+            return value_string(result);
         }
 
         /*
-         * Numeric operators.
+         * Numeric operations.
          */
         if (
-            left.type ==
-                VALUE_NUMBER &&
-            right.type ==
-                VALUE_NUMBER
+            left.type == VALUE_NUMBER &&
+            right.type == VALUE_NUMBER
         )
         {
-            double a =
-                left.number;
-
-            double b =
-                right.number;
-
             double result = 0;
 
-            switch (
-                expr->operator
-            )
+            switch (expr->operator)
             {
                 case TOKEN_PLUS:
-                    result = a + b;
+                    result =
+                        left.number +
+                        right.number;
                     break;
 
                 case TOKEN_MINUS:
-                    result = a - b;
+                    result =
+                        left.number -
+                        right.number;
                     break;
 
                 case TOKEN_STAR:
-                    result = a * b;
+                    result =
+                        left.number *
+                        right.number;
                     break;
 
                 case TOKEN_SLASH:
-                    if (b == 0)
+                    if (right.number == 0)
                     {
                         fprintf(
                             stderr,
@@ -551,11 +364,14 @@ static Value evaluate(Expr *expr)
                         return value_none();
                     }
 
-                    result = a / b;
+                    result =
+                        left.number /
+                        right.number;
+
                     break;
 
                 case TOKEN_PERCENT:
-                    if (b == 0)
+                    if (right.number == 0)
                     {
                         fprintf(
                             stderr,
@@ -569,38 +385,62 @@ static Value evaluate(Expr *expr)
                     }
 
                     result =
-                        fmod(a, b);
+                        fmod(
+                            left.number,
+                            right.number
+                        );
 
                     break;
 
-                case TOKEN_POWER:
+                case TOKEN_CARET:
                     result =
-                        pow(a, b);
+                        pow(
+                            left.number,
+                            right.number
+                        );
 
                     break;
 
                 case TOKEN_GREATER:
-                    result = a > b;
+                    result =
+                        left.number >
+                        right.number;
+
                     break;
 
                 case TOKEN_LESS:
-                    result = a < b;
+                    result =
+                        left.number <
+                        right.number;
+
                     break;
 
                 case TOKEN_GREATER_EQUAL:
-                    result = a >= b;
+                    result =
+                        left.number >=
+                        right.number;
+
                     break;
 
                 case TOKEN_LESS_EQUAL:
-                    result = a <= b;
+                    result =
+                        left.number <=
+                        right.number;
+
                     break;
 
                 case TOKEN_EQUAL_EQUAL:
-                    result = a == b;
+                    result =
+                        left.number ==
+                        right.number;
+
                     break;
 
                 case TOKEN_NOT_EQUAL:
-                    result = a != b;
+                    result =
+                        left.number !=
+                        right.number;
+
                     break;
 
                 default:
@@ -613,19 +453,15 @@ static Value evaluate(Expr *expr)
             value_free(&left);
             value_free(&right);
 
-            return value_number(
-                result
-            );
+            return value_number(result);
         }
 
         /*
          * String equality.
          */
         if (
-            left.type ==
-                VALUE_STRING &&
-            right.type ==
-                VALUE_STRING
+            left.type == VALUE_STRING &&
+            right.type == VALUE_STRING
         )
         {
             int comparison =
@@ -634,7 +470,7 @@ static Value evaluate(Expr *expr)
                     right.string
                 );
 
-            double result = 0;
+            double result;
 
             if (
                 expr->operator ==
@@ -652,13 +488,18 @@ static Value evaluate(Expr *expr)
                 result =
                     comparison != 0;
             }
+            else
+            {
+                value_free(&left);
+                value_free(&right);
+
+                return value_none();
+            }
 
             value_free(&left);
             value_free(&right);
 
-            return value_number(
-                result
-            );
+            return value_number(result);
         }
 
         value_free(&left);
@@ -668,13 +509,7 @@ static Value evaluate(Expr *expr)
     return value_none();
 }
 
-static void execute_statement(
-    Statement *statement
-);
-
-static void execute_output(
-    Expr *expr
-)
+static void execute_output(Expr *expr)
 {
     if (!expr)
         return;
@@ -684,14 +519,38 @@ static void execute_output(
 
     print_value(&value);
 
-    printf("\n");
-
     value_free(&value);
+
+    printf("\n");
 }
 
-static void execute_statement(
-    Statement *statement
-)
+static void execute_statement(Statement *statement);
+
+static void execute_if(Statement *statement)
+{
+    Value condition =
+        evaluate(statement->condition);
+
+    int true_value =
+        truthy(&condition);
+
+    value_free(&condition);
+
+    if (true_value)
+    {
+        execute_statement(
+            statement->body
+        );
+    }
+    else if (statement->else_body)
+    {
+        execute_statement(
+            statement->else_body
+        );
+    }
+}
+
+static void execute_statement(Statement *statement)
 {
     while (statement)
     {
@@ -700,7 +559,50 @@ static void execute_statement(
             case STMT_ASSIGN:
             {
                 /*
-                 * age is num
+                 * x = expression
+                 *
+                 * Always numeric.
+                 */
+                if (
+                    statement->extra &&
+                    strcasecmp(
+                        statement->extra,
+                        "num"
+                    ) == 0 &&
+                    statement->expression
+                )
+                {
+                    Value value =
+                        evaluate(
+                            statement->expression
+                        );
+
+                    if (
+                        value.type !=
+                        VALUE_NUMBER
+                    )
+                    {
+                        fprintf(
+                            stderr,
+                            "LOIS: expected number in numeric assignment to %s\n",
+                            statement->name
+                        );
+
+                        value_free(&value);
+                        break;
+                    }
+
+                    set_variable(
+                        statement->name,
+                        value,
+                        1
+                    );
+
+                    break;
+                }
+
+                /*
+                 * name is num
                  */
                 if (
                     statement->extra &&
@@ -724,14 +626,10 @@ static void execute_statement(
                         statement->expression
                     );
 
-                int is_num =
-                    value.type ==
-                    VALUE_NUMBER;
-
                 set_variable(
                     statement->name,
                     value,
-                    is_num
+                    value.type == VALUE_NUMBER
                 );
 
                 break;
@@ -783,9 +681,7 @@ static void execute_statement(
 
                         set_variable(
                             statement->name,
-                            value_number(
-                                number
-                            ),
+                            value_number(number),
                             1
                         );
                     }
@@ -793,9 +689,7 @@ static void execute_statement(
                     {
                         set_variable(
                             statement->name,
-                            value_string(
-                                buffer
-                            ),
+                            value_string(buffer),
                             0
                         );
                     }
@@ -811,142 +705,7 @@ static void execute_statement(
                 break;
 
             case STMT_IF:
-            {
-                Value condition =
-                    evaluate(
-                        statement->condition
-                    );
-
-                int yes =
-                    truthy(
-                        &condition
-                    );
-
-                value_free(
-                    &condition
-                );
-
-                if (yes)
-                {
-                    execute_statement(
-                        statement->body
-                    );
-                }
-
-                break;
-            }
-
-            case STMT_WHILE:
-            {
-                int guard = 0;
-
-                while (guard++ < 100000)
-                {
-                    Value condition =
-                        evaluate(
-                            statement->condition
-                        );
-
-                    int yes =
-                        truthy(
-                            &condition
-                        );
-
-                    value_free(
-                        &condition
-                    );
-
-                    if (!yes)
-                        break;
-
-                    execute_statement(
-                        statement->body
-                    );
-
-                    if (loop_break)
-                    {
-                        loop_break = 0;
-                        break;
-                    }
-                }
-
-                break;
-            }
-
-            case STMT_FOR:
-            {
-                /*
-                 * Initial value.
-                 */
-                Value start =
-                    evaluate(
-                        statement->expression
-                    );
-
-                set_variable(
-                    statement->name,
-                    start,
-                    1
-                );
-
-                int guard = 0;
-
-                while (guard++ < 100000)
-                {
-                    Value condition =
-                        evaluate(
-                            statement->condition
-                        );
-
-                    int yes =
-                        truthy(
-                            &condition
-                        );
-
-                    value_free(
-                        &condition
-                    );
-
-                    if (!yes)
-                        break;
-
-                    execute_statement(
-                        statement->body
-                    );
-
-                    Variable *v =
-                        find_variable(
-                            statement->name
-                        );
-
-                    if (!v ||
-                        v->value.type !=
-                            VALUE_NUMBER)
-                    {
-                        break;
-                    }
-
-                    v->value.number += 1;
-
-                    if (loop_break)
-                    {
-                        loop_break = 0;
-                        break;
-                    }
-                }
-
-                break;
-            }
-
-            case STMT_ELSE_IF:
-            case STMT_ELSE:
-            case STMT_FUNCTION:
-            case STMT_BREAK:
-                /*
-                 * Functions and the complete
-                 * branch system are added in
-                 * the next engine revision.
-                 */
+                execute_if(statement);
                 break;
         }
 
@@ -955,24 +714,15 @@ static void execute_statement(
     }
 }
 
-void interpreter_run(
-    Statement *program
-)
+void interpreter_run(Statement *program)
 {
     variable_count = 0;
-    loop_break = 0;
 
-    execute_statement(
-        program
-    );
+    execute_statement(program);
 
-    for (int i = 0;
-         i < variable_count;
-         i++)
+    for (int i = 0; i < variable_count; i++)
     {
-        free(
-            variables[i].name
-        );
+        free(variables[i].name);
 
         value_free(
             &variables[i].value

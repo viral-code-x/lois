@@ -7,8 +7,7 @@
 
 static char *read_file(const char *filename)
 {
-    FILE *file =
-        fopen(filename, "rb");
+    FILE *file = fopen(filename, "rb");
 
     if (!file)
     {
@@ -16,45 +15,23 @@ static char *read_file(const char *filename)
         return NULL;
     }
 
-    if (fseek(file, 0, SEEK_END) != 0)
-    {
-        fclose(file);
-        return NULL;
-    }
+    fseek(file, 0, SEEK_END);
 
-    long size =
-        ftell(file);
-
-    if (size < 0)
-    {
-        fclose(file);
-        return NULL;
-    }
+    long size = ftell(file);
 
     rewind(file);
 
-    char *buffer =
-        malloc((size_t)size + 1);
+    char *buffer = malloc(size + 1);
 
     if (!buffer)
     {
         fclose(file);
-
-        fprintf(
-            stderr,
-            "LOIS: out of memory\n"
-        );
-
+        fprintf(stderr, "LOIS: out of memory\n");
         return NULL;
     }
 
     size_t read =
-        fread(
-            buffer,
-            1,
-            (size_t)size,
-            file
-        );
+        fread(buffer, 1, size, file);
 
     buffer[read] = '\0';
 
@@ -67,11 +44,14 @@ int main(int argc, char **argv)
 {
     if (argc < 2)
     {
-        printf("LOIS 0.2\n");
+        printf("LOIS 0.1\n");
         printf("Language Operated on IS\n");
         printf("\n");
         printf("Usage:\n");
         printf("  lois <file.is>\n");
+        printf("\n");
+        printf("Example:\n");
+        printf("  lois examples/hello.is\n");
 
         return 0;
     }

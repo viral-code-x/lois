@@ -43,29 +43,15 @@ static int word_is(const char *word)
 
 static int peek_word_is(int offset, const char *word)
 {
-    Token *token = peek(offset);
-
     return
-        token->type == TOKEN_WORD &&
-        strcasecmp(token->text, word) == 0;
+        peek(offset)->type == TOKEN_WORD &&
+        strcasecmp(peek(offset)->text, word) == 0;
 }
 
 static void skip_newlines(void)
 {
     while (current()->type == TOKEN_NEWLINE)
         advance();
-}
-
-static void optional_period(void)
-{
-    /*
-     * Old LOIS programs may still use a period.
-     *
-     * New LOIS does not require it.
-     *
-     * The lexer no longer creates TOKEN_DOT,
-     * so this function intentionally does nothing.
-     */
 }
 
 static Expr *new_expr(ExprType type)
@@ -75,39 +61,13 @@ static Expr *new_expr(ExprType type)
 
     if (!expr)
     {
-        fprintf(
-            stderr,
-            "LOIS: out of memory\n"
-        );
-
+        fprintf(stderr, "LOIS: out of memory\n");
         exit(1);
     }
 
     expr->type = type;
 
     return expr;
-}
-
-static Statement *new_statement(
-    StatementType type
-)
-{
-    Statement *statement =
-        calloc(1, sizeof(Statement));
-
-    if (!statement)
-    {
-        fprintf(
-            stderr,
-            "LOIS: out of memory\n"
-        );
-
-        exit(1);
-    }
-
-    statement->type = type;
-
-    return statement;
 }
 
 static Expr *make_binary(
@@ -127,79 +87,64 @@ static Expr *make_binary(
 }
 
 static Expr *make_unary(
-    TokenType operator,
-    Expr *right
+    Expr *right,
+    TokenType operator
 )
 {
     Expr *expr =
         new_expr(EXPR_UNARY);
 
-    expr->operator = operator;
     expr->right = right;
+    expr->operator = operator;
 
     return expr;
 }
 
-static Expr *make_call(
-    const char *name
-)
+static int precedence(TokenType type)
 {
-    Expr *expr =
-        new_expr(EXPR_CALL);
-
-    expr->text =
-        strdup(name);
-
-    return expr;
-}
-
-static void add_argument(
-    Expr *call,
-    Expr *argument
-)
-{
-    call->arguments =
-        realloc(
-            call->arguments,
-            sizeof(Expr *) *
-            (size_t)(call->argument_count + 1)
-        );
-
-    if (!call->arguments)
+    switch (type)
     {
-        fprintf(
-            stderr,
-            "LOIS: out of memory\n"
-        );
+        case TOKEN_PLUS:
+        case TOKEN_MINUS:
+            return 10;
 
-        exit(1);
+        case TOKEN_STAR:
+        case TOKEN_SLASH:
+        case TOKEN_PERCENT:
+            return 20;
+
+        case TOKEN_CARET:
+            return 30;
+
+        case TOKEN_GREATER:
+        case TOKEN_LESS:
+        case TOKEN_GREATER_EQUAL:
+        case TOKEN_LESS_EQUAL:
+        case TOKEN_EQUAL_EQUAL:
+        case TOKEN_NOT_EQUAL:
+            return 5;
+
+        case TOKEN_AND:
+            return 3;
+
+        case TOKEN_OR:
+            return 2;
+
+        default:
+            return -1;
     }
-
-    call->arguments[
-        call->argument_count++
-    ] = argument;
 }
 
-/*
- * Forward declarations.
- */
-static Expr *parse_expression(void);
-static Expr *parse_or(void);
-static Expr *parse_and(void);
-static Expr *parse_equality(void);
-static Expr *parse_comparison(void);
-static Expr *parse_term(void);
-static Expr *parse_factor(void);
-static Expr *parse_power(void);
-static Expr *parse_unary(void);
+static Expr *parse_expression(int minimum_precedence);
 static Expr *parse_primary(void);
 
 static Expr *parse_primary(void)
 {
-    Token *token = current();
+    Token *token =
+        current();
 
     /*
-     * String.
+     * String literal.
      */
     if (token->type == TOKEN_STRING)
     {
@@ -215,7 +160,7 @@ static Expr *parse_primary(void)
     }
 
     /*
-     * Number.
+     * Number literal.
      */
     if (token->type == TOKEN_NUMBER)
     {
@@ -231,6 +176,59 @@ static Expr *parse_primary(void)
     }
 
     /*
+     * Word / variable.
+     *
+     * "not expression"
+     */
+    if (token->type == TOKEN_WORD)
+    {
+        if (word_is("not"))
+        {
+            advance();
+
+            Expr *right =
+                parse_primary();
+
+            if (!right)
+                return NULL;
+
+            return make_unary(
+                right,
+                TOKEN_NOT_EQUAL
+            );
+        }
+
+        Expr *expr =
+            new_expr(EXPR_VARIABLE);
+
+        expr->text =
+            strdup(token->text);
+
+        advance();
+
+        return expr;
+    }
+
+    /*
+     * Unary minus.
+     */
+    if (token->type == TOKEN_MINUS)
+    {
+        advance();
+
+        Expr *right =
+            parse_primary();
+
+        if (!right)
+            return NULL;
+
+        return make_unary(
+            right,
+            TOKEN_MINUS
+        );
+    }
+
+    /*
      * Parenthesized expression.
      */
     if (token->type == TOKEN_LPAREN)
@@ -238,7 +236,7 @@ static Expr *parse_primary(void)
         advance();
 
         Expr *expr =
-            parse_expression();
+            parse_expression(0);
 
         if (current()->type == TOKEN_RPAREN)
             advance();
@@ -246,327 +244,106 @@ static Expr *parse_primary(void)
         return expr;
     }
 
-    /*
-     * Word / variable / function call.
-     */
-    if (token->type == TOKEN_WORD)
+    return NULL;
+}
+
+static Expr *parse_expression(int minimum_precedence)
+{
+    Expr *left =
+        parse_primary();
+
+    if (!left)
+        return NULL;
+
+    while (1)
     {
-        char *name =
-            strdup(token->text);
+        TokenType operator =
+            current()->type;
+
+        int p =
+            precedence(operator);
+
+        /*
+         * Logical operators are words.
+         *
+         * They deliberately have lower precedence
+         * than comparison operators.
+         *
+         * "and" binds tighter than "or".
+         */
+        if (word_is("and"))
+        {
+            operator = TOKEN_STAR;
+            p = 5;
+        }
+        else if (word_is("or"))
+        {
+            operator = TOKEN_PLUS;
+            p = 4;
+        }
+
+        if (p < minimum_precedence)
+            break;
 
         advance();
 
         /*
-         * Function call:
-         *
-         * p(x)
-         * sin(x)
+         * ^ is right associative.
          */
-        if (current()->type == TOKEN_LPAREN)
+        int next_precedence =
+            operator == TOKEN_CARET
+                ? p
+                : p + 1;
+
+        Expr *right =
+            parse_expression(next_precedence);
+
+        if (!right)
+            break;
+
+        left =
+            make_binary(
+                left,
+                right,
+                operator
+            );
+    }
+
+    return left;
+}
+
+static Expr *parse_output(void)
+{
+    Expr *left =
+        parse_expression(0);
+
+    if (!left)
+        return NULL;
+
+    /*
+     * Adjacent words/numbers/strings become
+     * output concatenation.
+     */
+    while (
+        current()->type == TOKEN_WORD ||
+        current()->type == TOKEN_STRING ||
+        current()->type == TOKEN_NUMBER
+    )
+    {
+        /*
+         * Don't consume the beginning of another
+         * statement.
+         */
+        if (word_is("then") ||
+            word_is("else") ||
+            word_is("but") ||
+            word_is("if"))
         {
-            Expr *call =
-                make_call(name);
-
-            free(name);
-
-            advance();
-
-            if (current()->type != TOKEN_RPAREN)
-            {
-                while (1)
-                {
-                    Expr *argument =
-                        parse_expression();
-
-                    if (argument)
-                        add_argument(
-                            call,
-                            argument
-                        );
-
-                    if (
-                        current()->type ==
-                        TOKEN_COMMA
-                    )
-                    {
-                        advance();
-                        continue;
-                    }
-
-                    break;
-                }
-            }
-
-            if (current()->type == TOKEN_RPAREN)
-                advance();
-
-            return call;
+            break;
         }
 
-        Expr *expr =
-            new_expr(EXPR_VARIABLE);
-
-        expr->text = name;
-
-        return expr;
-    }
-
-    return NULL;
-}
-
-static Expr *parse_unary(void)
-{
-    /*
-     * not x
-     * !x
-     * -x
-     */
-    if (
-        current()->type == TOKEN_MINUS ||
-        current()->type == TOKEN_BANG ||
-        word_is("not")
-    )
-    {
-        TokenType operator =
-            current()->type;
-
-        if (word_is("not"))
-            operator = TOKEN_BANG;
-
-        advance();
-
-        return make_unary(
-            operator,
-            parse_unary()
-        );
-    }
-
-    return parse_primary();
-}
-
-static Expr *parse_power(void)
-{
-    Expr *left =
-        parse_unary();
-
-    if (!left)
-        return NULL;
-
-    if (current()->type == TOKEN_POWER)
-    {
-        TokenType operator =
-            current()->type;
-
-        advance();
-
         Expr *right =
-            parse_power();
-
-        return make_binary(
-            left,
-            right,
-            operator
-        );
-    }
-
-    return left;
-}
-
-static Expr *parse_factor(void)
-{
-    Expr *left =
-        parse_power();
-
-    if (!left)
-        return NULL;
-
-    while (
-        current()->type == TOKEN_STAR ||
-        current()->type == TOKEN_SLASH ||
-        current()->type == TOKEN_PERCENT
-    )
-    {
-        TokenType operator =
-            current()->type;
-
-        advance();
-
-        Expr *right =
-            parse_power();
-
-        if (!right)
-            break;
-
-        left =
-            make_binary(
-                left,
-                right,
-                operator
-            );
-    }
-
-    return left;
-}
-
-static Expr *parse_term(void)
-{
-    Expr *left =
-        parse_factor();
-
-    if (!left)
-        return NULL;
-
-    while (
-        current()->type == TOKEN_PLUS ||
-        current()->type == TOKEN_MINUS
-    )
-    {
-        TokenType operator =
-            current()->type;
-
-        advance();
-
-        Expr *right =
-            parse_factor();
-
-        if (!right)
-            break;
-
-        left =
-            make_binary(
-                left,
-                right,
-                operator
-            );
-    }
-
-    return left;
-}
-
-static Expr *parse_comparison(void)
-{
-    Expr *left =
-        parse_term();
-
-    if (!left)
-        return NULL;
-
-    while (
-        current()->type == TOKEN_GREATER ||
-        current()->type == TOKEN_LESS ||
-        current()->type == TOKEN_GREATER_EQUAL ||
-        current()->type == TOKEN_LESS_EQUAL
-    )
-    {
-        TokenType operator =
-            current()->type;
-
-        advance();
-
-        Expr *right =
-            parse_term();
-
-        if (!right)
-            break;
-
-        left =
-            make_binary(
-                left,
-                right,
-                operator
-            );
-    }
-
-    return left;
-}
-
-static Expr *parse_equality(void)
-{
-    Expr *left =
-        parse_comparison();
-
-    if (!left)
-        return NULL;
-
-    while (
-        current()->type == TOKEN_EQUAL_EQUAL ||
-        current()->type == TOKEN_NOT_EQUAL
-    )
-    {
-        TokenType operator =
-            current()->type;
-
-        advance();
-
-        Expr *right =
-            parse_comparison();
-
-        if (!right)
-            break;
-
-        left =
-            make_binary(
-                left,
-                right,
-                operator
-            );
-    }
-
-    return left;
-}
-
-static Expr *parse_and(void)
-{
-    Expr *left =
-        parse_equality();
-
-    if (!left)
-        return NULL;
-
-    while (
-        word_is("and") ||
-        current()->type == TOKEN_BANG
-    )
-    {
-        TokenType operator =
-            TOKEN_BANG;
-
-        if (word_is("and"))
-            operator = TOKEN_STAR;
-
-        advance();
-
-        Expr *right =
-            parse_equality();
-
-        if (!right)
-            break;
-
-        left =
-            make_binary(
-                left,
-                right,
-                operator
-            );
-    }
-
-    return left;
-}
-
-static Expr *parse_or(void)
-{
-    Expr *left =
-        parse_and();
-
-    if (!left)
-        return NULL;
-
-    while (word_is("or"))
-    {
-        advance();
-
-        Expr *right =
-            parse_and();
+            parse_primary();
 
         if (!right)
             break;
@@ -577,35 +354,27 @@ static Expr *parse_or(void)
                 right,
                 TOKEN_PLUS
             );
-
-        /*
-         * The interpreter will distinguish
-         * logical OR using expression metadata
-         * in the next interpreter revision.
-         *
-         * For now this keeps the AST valid.
-         */
     }
 
     return left;
 }
 
-static Expr *parse_expression(void)
+static Statement *new_statement(StatementType type)
 {
-    return parse_or();
+    Statement *statement =
+        calloc(1, sizeof(Statement));
+
+    if (!statement)
+    {
+        fprintf(stderr, "LOIS: out of memory\n");
+        exit(1);
+    }
+
+    statement->type = type;
+
+    return statement;
 }
 
-/*
- * Parse an expression until the current line ends.
- */
-static Expr *parse_line_expression(void)
-{
-    return parse_expression();
-}
-
-/*
- * output is ...
- */
 static Statement *parse_output_statement(void)
 {
     advance();
@@ -617,18 +386,11 @@ static Statement *parse_output_statement(void)
         new_statement(STMT_OUTPUT);
 
     statement->expression =
-        parse_line_expression();
-
-    optional_period();
+        parse_output();
 
     return statement;
 }
 
-/*
- * input name
- *
- * input is name
- */
 static Statement *parse_input_statement(void)
 {
     advance();
@@ -647,20 +409,9 @@ static Statement *parse_input_statement(void)
         advance();
     }
 
-    optional_period();
-
     return statement;
 }
 
-/*
- * name is Alex
- *
- * age is 13
- *
- * age = 13
- *
- * age is num
- */
 static Statement *parse_assignment_statement(void)
 {
     if (current()->type != TOKEN_WORD)
@@ -671,110 +422,43 @@ static Statement *parse_assignment_statement(void)
 
     advance();
 
-    Statement *statement = NULL;
+    Statement *statement =
+        new_statement(STMT_ASSIGN);
+
+    statement->name = name;
 
     /*
-     * "=" means numeric/general expression.
+     * name = expression
+     *
+     * = means numeric assignment.
      */
-    if (current()->type == TOKEN_EQUAL)
+    if (current()->type == TOKEN_ASSIGN)
     {
         advance();
 
-        statement =
-            new_statement(STMT_ASSIGN);
-
-        statement->name = name;
-
         statement->extra =
-            strdup("expression");
+            strdup("num");
 
         statement->expression =
-            parse_line_expression();
-
-        optional_period();
+            parse_expression(0);
 
         return statement;
     }
 
     /*
-     * "is" assignment.
+     * name is ...
      */
     if (!word_is("is"))
     {
-        free(name);
+        free(statement->name);
+        free(statement);
         return NULL;
     }
 
     advance();
 
     /*
-     * Function declaration:
-     *
-     * p is function of x*x
-     *
-     * This parser stores the expression as
-     * the function body.
-     */
-    if (word_is("function"))
-    {
-        statement =
-            new_statement(STMT_FUNCTION);
-
-        statement->name = name;
-
-        advance();
-
-        if (word_is("of"))
-            advance();
-
-        /*
-         * Function currently supports one or
-         * more parameter names before expression.
-         *
-         * Example:
-         *
-         * p is function of x*x
-         */
-        if (current()->type == TOKEN_WORD)
-        {
-            char *parameter =
-                strdup(current()->text);
-
-            advance();
-
-            /*
-             * If another word/operator/expression
-             * follows, treat first word as parameter.
-             */
-            statement->parameters =
-                malloc(sizeof(char *));
-
-            statement->parameters[0] =
-                parameter;
-
-            statement->parameter_count = 1;
-
-            /*
-             * If expression starts with the
-             * parameter itself, parse it.
-             */
-        }
-
-        statement->expression =
-            parse_line_expression();
-
-        optional_period();
-
-        return statement;
-    }
-
-    statement =
-        new_statement(STMT_ASSIGN);
-
-    statement->name = name;
-
-    /*
-     * age is num
+     * name is num
      */
     if (word_is("num"))
     {
@@ -783,18 +467,28 @@ static Statement *parse_assignment_statement(void)
 
         advance();
 
-        optional_period();
-
         return statement;
     }
 
     /*
-     * Explicit typecast:
+     * name is expression
      *
-     * age is num 13
-     *
-     * or simply normal string-style assignment.
+     * For a bare word, preserve the old LOIS
+     * behavior: it is a literal string.
      */
+    if (current()->type == TOKEN_WORD)
+    {
+        statement->expression =
+            new_expr(EXPR_LITERAL);
+
+        statement->expression->text =
+            strdup(current()->text);
+
+        advance();
+
+        return statement;
+    }
+
     if (current()->type == TOKEN_STRING)
     {
         statement->expression =
@@ -804,195 +498,253 @@ static Statement *parse_assignment_statement(void)
             strdup(current()->text);
 
         advance();
+
+        return statement;
     }
-    else if (current()->type == TOKEN_NUMBER)
+
+    if (current()->type == TOKEN_NUMBER)
     {
-        /*
-         * "13" after "is" is intentionally a
-         * string according to LOIS semantics.
-         */
-        char buffer[128];
+        statement->expression =
+            new_expr(EXPR_LITERAL);
+
+        char buffer[64];
 
         snprintf(
             buffer,
             sizeof(buffer),
-            "%s",
-            current()->text
-                ? current()->text
-                : ""
+            "%.15g",
+            current()->number
         );
-
-        statement->expression =
-            new_expr(EXPR_LITERAL);
 
         statement->expression->text =
             strdup(buffer);
 
         advance();
-    }
-    else if (current()->type == TOKEN_WORD)
-    {
-        statement->expression =
-            new_expr(EXPR_LITERAL);
 
-        statement->expression->text =
-            strdup(current()->text);
-
-        advance();
-    }
-    else
-    {
-        statement->expression =
-            parse_line_expression();
+        return statement;
     }
 
-    optional_period();
+    statement->expression =
+        parse_expression(0);
 
     return statement;
 }
 
-/*
- * if condition then statement
- *
- * Also accepts:
- *
- * if age > 18
- * then output is adult
- */
+static Statement *parse_single_body(void)
+{
+    skip_newlines();
+
+    if (word_is("output"))
+        return parse_output_statement();
+
+    if (word_is("input"))
+        return parse_input_statement();
+
+    if (current()->type == TOKEN_WORD)
+        return parse_assignment_statement();
+
+    return NULL;
+}
+
 static Statement *parse_if_statement(void)
 {
+    /*
+     * LOIS conditional chain:
+     *
+     * if condition
+     * then execution
+     *
+     * if condition
+     * then execution
+     * else execution
+     *
+     * if condition
+     * then execution
+     * but if condition
+     * then execution
+     * else execution
+     */
+
+    if (!word_is("if"))
+        return NULL;
+
     advance();
 
     Statement *statement =
         new_statement(STMT_IF);
 
+    /*
+     * Parse the condition.
+     */
     statement->condition =
-        parse_expression();
+        parse_expression(0);
 
     /*
-     * Same-line then.
+     * "then" is normally on the next line:
+     *
+     *     if age >= 18
+     *     then output is adult
+     *
+     * Move across the newline before looking for it.
      */
-    if (word_is("then"))
+    skip_newlines();
+
+    if (!word_is("then"))
+    {
+        fprintf(
+            stderr,
+            "LOIS: expected 'then' after if condition\n"
+        );
+        parser_free(statement);
+        return NULL;
+    }
+
+    advance();
+
+    /*
+     * Parse the execution after then.
+     */
+    statement->body =
+        parse_single_body();
+
+    /*
+     * Consume the rest of this execution line.
+     */
+    while (
+        current()->type != TOKEN_NEWLINE &&
+        current()->type != TOKEN_EOF
+    )
+    {
+        advance();
+    }
+
+    /*
+     * Move to the next logical line.
+     */
+    skip_newlines();
+
+    /*
+     * ELSE belongs to this completed chain.
+     */
+    if (word_is("else"))
     {
         advance();
 
-        if (word_is("output"))
-            statement->body =
-                parse_output_statement();
+        statement->else_body =
+            parse_single_body();
 
-        else
-            statement->body =
-                NULL;
+        /*
+         * Consume the rest of the else line.
+         */
+        while (
+            current()->type != TOKEN_NEWLINE &&
+            current()->type != TOKEN_EOF
+        )
+        {
+            advance();
+        }
 
         return statement;
     }
 
     /*
-     * Old two-line syntax.
+     * BUT IF creates another conditional branch.
+     *
+     * Important:
+     * consume "but" and "if" here, then build the
+     * nested condition manually. This prevents the
+     * nested parser from accidentally stealing an
+     * else belonging to the current chain.
      */
-    skip_newlines();
-
-    if (word_is("then"))
+    if (
+        word_is("but") &&
+        peek_word_is(1, "if")
+    )
+    {
+        /*
+         * Consume "but".
+         */
         advance();
 
-    skip_newlines();
+        /*
+         * Consume "if".
+         */
+        advance();
 
-    if (word_is("output"))
-        statement->body =
-            parse_output_statement();
+        Statement *else_if =
+            new_statement(STMT_IF);
 
-    return statement;
-}
+        /*
+         * Parse the else-if condition.
+         */
+        else_if->condition =
+            parse_expression(0);
 
-static Statement *parse_while_statement(void)
-{
-    advance();
-
-    Statement *statement =
-        new_statement(STMT_WHILE);
-
-    statement->condition =
-        parse_expression();
-
-    /*
-     * while condition output ...
-     */
-    if (word_is("output"))
-    {
-        statement->body =
-            parse_output_statement();
-    }
-
-    else
-    {
+        /*
+         * "then" follows the else-if condition on
+         * the next logical line.
+         */
         skip_newlines();
 
-        if (word_is("output"))
-            statement->body =
-                parse_output_statement();
-    }
+        if (!word_is("then"))
+        {
+            fprintf(
+                stderr,
+                "LOIS: expected 'then' after but-if condition\n"
+            );
 
-    return statement;
-}
-
-/*
- * for x = 1 till x < 10 do output is x
- */
-static Statement *parse_for_statement(void)
-{
-    advance();
-
-    Statement *statement =
-        new_statement(STMT_FOR);
-
-    /*
-     * Variable.
-     */
-    if (current()->type == TOKEN_WORD)
-    {
-        statement->name =
-            strdup(current()->text);
+            parser_free(else_if);
+            parser_free(statement);
+            return NULL;
+        }
 
         advance();
-    }
 
-    /*
-     * =
-     */
-    if (current()->type == TOKEN_EQUAL)
-        advance();
+        /*
+         * Parse else-if execution.
+         */
+        else_if->body =
+            parse_single_body();
 
-    /*
-     * Start expression.
-     */
-    statement->expression =
-        parse_expression();
+        /*
+         * Consume the execution line.
+         */
+        while (
+            current()->type != TOKEN_NEWLINE &&
+            current()->type != TOKEN_EOF
+        )
+        {
+            advance();
+        }
 
-    /*
-     * till
-     */
-    if (word_is("till"))
-        advance();
+        /*
+         * Move to the possible final else.
+         */
+        skip_newlines();
 
-    /*
-     * Condition.
-     */
-    statement->condition =
-        parse_expression();
+        /*
+         * Final else belongs to the else-if branch.
+         */
+        if (word_is("else"))
+        {
+            advance();
 
-    /*
-     * do
-     */
-    if (word_is("do"))
-        advance();
+            else_if->else_body =
+                parse_single_body();
 
-    /*
-     * Body.
-     */
-    if (word_is("output"))
-    {
-        statement->body =
-            parse_output_statement();
+            while (
+                current()->type != TOKEN_NEWLINE &&
+                current()->type != TOKEN_EOF
+            )
+            {
+                advance();
+            }
+        }
+
+        statement->else_body =
+            else_if;
+
+        return statement;
     }
 
     return statement;
@@ -1014,21 +766,8 @@ static Statement *parse_statement(void)
     if (word_is("if"))
         return parse_if_statement();
 
-    if (word_is("while"))
-        return parse_while_statement();
-
-    if (word_is("for"))
-        return parse_for_statement();
-
     if (current()->type == TOKEN_WORD)
         return parse_assignment_statement();
-
-    fprintf(
-        stderr,
-        "LOIS parser: unexpected token at %d:%d\n",
-        current()->line,
-        current()->column
-    );
 
     advance();
 
@@ -1043,21 +782,15 @@ Statement *parser_parse(TokenList *token_list)
     Statement *head = NULL;
     Statement *tail = NULL;
 
-    while (current()->type != TOKEN_EOF)
+    while (
+        current()->type != TOKEN_EOF
+    )
     {
         Statement *statement =
             parse_statement();
 
         if (!statement)
-        {
-            /*
-             * Avoid getting stuck forever.
-             */
-            if (current()->type != TOKEN_EOF)
-                advance();
-
             continue;
-        }
 
         if (!head)
         {
@@ -1069,8 +802,6 @@ Statement *parser_parse(TokenList *token_list)
             tail->next = statement;
             tail = statement;
         }
-
-        skip_newlines();
     }
 
     return head;
@@ -1084,18 +815,7 @@ static void free_expr(Expr *expr)
     free_expr(expr->left);
     free_expr(expr->right);
 
-    for (int i = 0;
-         i < expr->argument_count;
-         i++)
-    {
-        free_expr(
-            expr->arguments[i]
-        );
-    }
-
-    free(expr->arguments);
     free(expr->text);
-
     free(expr);
 }
 
@@ -1109,24 +829,11 @@ void parser_free(Statement *statement)
         free(statement->name);
         free(statement->extra);
 
-        for (int i = 0;
-             i < statement->parameter_count;
-             i++)
-        {
-            free(statement->parameters[i]);
-        }
-
-        free(statement->parameters);
-
         free_expr(statement->expression);
         free_expr(statement->condition);
 
         parser_free(statement->body);
-
-        if (statement->next_branch)
-            parser_free(
-                statement->next_branch
-            );
+        parser_free(statement->else_body);
 
         free(statement);
 

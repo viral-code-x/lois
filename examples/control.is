@@ -1,0 +1,22 @@
+name is Alex
+age = 20
+
+output is hello name
+output is 2 + 3 * 4
+output is 2 ^ 3
+output is 17 % 5
+output is (2 + 3) * 4
+
+if age >= 18
+then output is adult
+else output is baby
+
+if age >= 21
+then output is adult21
+but if age >= 18
+then output is adult
+else output is baby
+
+a = 1
+
+while a < 5 output is a

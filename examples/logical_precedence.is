@@ -1,0 +1,7 @@
+a = 10
+b = 20
+c = 30
+
+output is a < b or b < c and a > b
+output is a > b or b < c and a < b
+output is a > b and b < c or a < b

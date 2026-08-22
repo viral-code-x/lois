@@ -1,0 +1,16 @@
+a = 10
+b = 3
+
+output is a + b
+output is a - b
+output is a * b
+output is a / b
+output is a % b
+output is 2 ^ 3
+
+output is a > b
+output is a < b
+output is a >= 10
+output is a <= 10
+output is a == 10
+output is a != b

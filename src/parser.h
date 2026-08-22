@@ -9,8 +9,7 @@ typedef enum
     EXPR_NUMBER,
     EXPR_VARIABLE,
     EXPR_BINARY,
-    EXPR_UNARY,
-    EXPR_CALL
+    EXPR_UNARY
 } ExprType;
 
 typedef struct Expr Expr;
@@ -26,9 +25,6 @@ struct Expr
 
     Expr *left;
     Expr *right;
-
-    Expr **arguments;
-    int argument_count;
 };
 
 typedef enum
@@ -36,17 +32,7 @@ typedef enum
     STMT_ASSIGN,
     STMT_INPUT,
     STMT_OUTPUT,
-
-    STMT_IF,
-    STMT_ELSE_IF,
-    STMT_ELSE,
-
-    STMT_WHILE,
-    STMT_FOR,
-
-    STMT_FUNCTION,
-
-    STMT_BREAK
+    STMT_IF
 } StatementType;
 
 typedef struct Statement Statement;
@@ -56,39 +42,14 @@ struct Statement
     StatementType type;
 
     char *name;
-
-    /*
-     * Used for:
-     *
-     * num
-     * upto
-     * etc.
-     */
     char *extra;
 
     Expr *expression;
-
     Expr *condition;
 
-    /*
-     * Function parameter names.
-     */
-    char **parameters;
-    int parameter_count;
-
-    /*
-     * Function body / if body / loop body.
-     */
     Statement *body;
+    Statement *else_body;
 
-    /*
-     * Else / else-if chain.
-     */
-    Statement *next_branch;
-
-    /*
-     * Normal program linked list.
-     */
     Statement *next;
 };
 

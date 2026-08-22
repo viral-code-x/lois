@@ -1,0 +1,47 @@
+name is Alex
+
+output is hello name
+output is "hello     name"
+
+age = 13
+output is age
+
+if age >= 18
+then output is adult
+else output is baby
+
+if age >= 13
+then output is teen
+
+if age >= 18
+then output is adult
+but if age >= 13
+then output is teen
+else output is baby
+
+x = 4 + 2 * 3
+output is x
+
+y = 4 ^ 2
+output is y
+
+z = 17 % 3
+output is z
+
+output is "hello
+world"
+
+A = 5
+output is A
+
+if A == 5
+then output is uppercase works
+
+if A >= 1 and A <= 10
+then output is and works
+
+if A == 5 or A == 7
+then output is or works
+
+if not A == 7
+then output is not works

@@ -1,0 +1,5 @@
+age = 15
+
+if age >= 18
+then output is adult
+else output is not-adult
