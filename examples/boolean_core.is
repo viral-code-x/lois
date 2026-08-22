@@ -1,0 +1,25 @@
+a is True
+b is False
+
+output is a
+output is b
+
+output is True == True
+output is True == False
+output is True != False
+
+output is True and True
+output is True and False
+output is False or True
+output is False or False
+
+output is not True
+output is not False
+
+output is 10 > 5
+output is 10 < 5
+output is 10 >= 10
+output is 10 <= 9
+
+output is (True and False) or True
+output is True or False and False

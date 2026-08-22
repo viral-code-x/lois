@@ -1,0 +1,19 @@
+a is true
+b is True
+c is False
+
+output is a
+output is b
+output is c
+
+output is True == True
+output is True == False
+output is True != False
+
+if True
+then output is condition-true
+else output is condition-false
+
+if False
+then output is wrong
+else output is false-branch

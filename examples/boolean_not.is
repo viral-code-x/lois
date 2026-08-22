@@ -1,0 +1,14 @@
+output is not True
+output is not False
+
+output is not (True and False)
+output is not (True or False)
+
+a is True
+b is False
+
+output is not a
+output is not b
+
+output is not (a and b)
+output is not (a or b)

@@ -1,0 +1,32 @@
+a is True
+b is False
+
+output is a
+output is b
+
+output is not a
+output is not b
+
+output is True == True
+output is True == False
+output is False == False
+
+output is True != True
+output is True != False
+output is False != True
+output is False != False
+
+output is True and True
+output is True and False
+output is False and True
+output is False and False
+
+output is True or True
+output is True or False
+output is False or True
+output is False or False
+
+output is not (True and False)
+output is not (True or False)
+output is not (a and b)
+output is not (a or b)

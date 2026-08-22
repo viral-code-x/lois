@@ -1,0 +1,733 @@
+#define _GNU_SOURCE
+
+#include "interpreter.h"
+#include "value.h"
+
+#include <math.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <strings.h>
+
+#define MAX_VARIABLES 256
+
+typedef struct
+{
+    char *name;
+    Value value;
+    int is_num;
+} Variable;
+
+static Variable variables[MAX_VARIABLES];
+static int variable_count = 0;
+
+static Variable *find_variable(const char *name)
+{
+    for (int i = 0; i < variable_count; i++)
+    {
+        if (
+            strcasecmp(
+                variables[i].name,
+                name
+            ) == 0
+        )
+        {
+            return &variables[i];
+        }
+    }
+
+    return NULL;
+}
+
+static void set_variable(
+    const char *name,
+    Value value,
+    int is_num
+)
+{
+    Variable *existing =
+        find_variable(name);
+
+    if (existing)
+    {
+        value_free(&existing->value);
+
+        existing->value = value;
+        existing->is_num = is_num;
+
+        return;
+    }
+
+    if (variable_count >= MAX_VARIABLES)
+    {
+        fprintf(
+            stderr,
+            "LOIS: too many variables\n"
+        );
+
+        exit(1);
+    }
+
+    variables[variable_count].name =
+        strdup(name);
+
+    variables[variable_count].value =
+        value;
+
+    variables[variable_count].is_num =
+        is_num;
+
+    variable_count++;
+}
+
+static void print_number(double number)
+{
+    if (number == (long long)number)
+    {
+        printf(
+            "%lld",
+            (long long)number
+        );
+    }
+    else
+    {
+        printf(
+            "%.12g",
+            number
+        );
+    }
+}
+
+static void print_value(Value *value)
+{
+    if (value->type == VALUE_STRING)
+    {
+        printf("%s", value->string);
+    }
+    else if (value->type == VALUE_NUMBER)
+    {
+        print_number(value->number);
+    }
+}
+
+static int truthy(Value *value)
+{
+    if (value->type == VALUE_NUMBER)
+        return value->number != 0;
+
+    if (value->type == VALUE_STRING)
+        return value->string[0] != '\0';
+
+    return 0;
+}
+
+static Value evaluate(Expr *expr)
+{
+    if (!expr)
+        return value_none();
+
+    if (expr->type == EXPR_LITERAL)
+        return value_string(expr->text);
+
+    if (expr->type == EXPR_NUMBER)
+        return value_number(expr->number);
+
+    if (expr->type == EXPR_VARIABLE)
+    {
+        Variable *variable =
+            find_variable(expr->text);
+
+        if (!variable)
+        {
+            return value_string(expr->text);
+        }
+
+        return value_copy(
+            &variable->value
+        );
+    }
+
+    if (expr->type == EXPR_UNARY)
+    {
+        Value right =
+            evaluate(expr->right);
+
+        if (expr->operator == TOKEN_MINUS)
+        {
+            if (right.type != VALUE_NUMBER)
+            {
+                value_free(&right);
+                return value_none();
+            }
+
+            double result =
+                -right.number;
+
+            value_free(&right);
+
+            return value_number(result);
+        }
+
+        /*
+         * TOKEN_NOT_EQUAL is being used internally
+         * for the "not" unary operator.
+         */
+        if (expr->operator == TOKEN_NOT_EQUAL)
+        {
+            double result =
+                truthy(&right) ? 0 : 1;
+
+            value_free(&right);
+
+            return value_number(result);
+        }
+
+        value_free(&right);
+
+        return value_none();
+    }
+
+    if (expr->type == EXPR_BINARY)
+    {
+        /*
+         * Logical operators.
+         *
+         * Always return numeric boolean values:
+         * 1 = true
+         * 0 = false
+         */
+        if (
+            expr->operator == TOKEN_AND ||
+            expr->operator == TOKEN_OR
+        )
+        {
+            Value left =
+                evaluate(expr->left);
+
+            /*
+             * Short-circuit AND/OR.
+             */
+            int left_true =
+                truthy(&left);
+
+            if (
+                expr->operator == TOKEN_AND &&
+                !left_true
+            )
+            {
+                value_free(&left);
+                return value_number(0);
+            }
+
+            if (
+                expr->operator == TOKEN_OR &&
+                left_true
+            )
+            {
+                value_free(&left);
+                return value_number(1);
+            }
+
+            value_free(&left);
+
+            Value right =
+                evaluate(expr->right);
+
+            int right_true =
+                truthy(&right);
+
+            value_free(&right);
+
+            if (expr->operator == TOKEN_AND)
+                return value_number(right_true ? 1 : 0);
+
+            return value_number(right_true ? 1 : 0);
+        }
+
+        Value left =
+            evaluate(expr->left);
+
+        Value right =
+            evaluate(expr->right);
+
+        /*
+         * String concatenation.
+         *
+         * Adjacent output pieces use + internally.
+         */
+        if (
+            expr->operator == TOKEN_PLUS &&
+            (
+                left.type == VALUE_STRING ||
+                right.type == VALUE_STRING
+            )
+        )
+        {
+            char left_text[2048];
+            char right_text[2048];
+
+            if (left.type == VALUE_STRING)
+            {
+                snprintf(
+                    left_text,
+                    sizeof(left_text),
+                    "%s",
+                    left.string
+                );
+            }
+            else
+            {
+                snprintf(
+                    left_text,
+                    sizeof(left_text),
+                    "%.12g",
+                    left.number
+                );
+            }
+
+            if (right.type == VALUE_STRING)
+            {
+                snprintf(
+                    right_text,
+                    sizeof(right_text),
+                    "%s",
+                    right.string
+                );
+            }
+            else
+            {
+                snprintf(
+                    right_text,
+                    sizeof(right_text),
+                    "%.12g",
+                    right.number
+                );
+            }
+
+            char result[4096];
+
+            snprintf(
+                result,
+                sizeof(result),
+                "%s %s",
+                left_text,
+                right_text
+            );
+
+            value_free(&left);
+            value_free(&right);
+
+            return value_string(result);
+        }
+
+        /*
+         * Numeric operations.
+         */
+        if (
+            left.type == VALUE_NUMBER &&
+            right.type == VALUE_NUMBER
+        )
+        {
+            double result = 0;
+
+            switch (expr->operator)
+            {
+                case TOKEN_PLUS:
+                    result =
+                        left.number +
+                        right.number;
+                    break;
+
+                case TOKEN_MINUS:
+                    result =
+                        left.number -
+                        right.number;
+                    break;
+
+                case TOKEN_STAR:
+                    result =
+                        left.number *
+                        right.number;
+                    break;
+
+                case TOKEN_SLASH:
+                    if (right.number == 0)
+                    {
+                        fprintf(
+                            stderr,
+                            "LOIS: division by zero\n"
+                        );
+
+                        value_free(&left);
+                        value_free(&right);
+
+                        return value_none();
+                    }
+
+                    result =
+                        left.number /
+                        right.number;
+
+                    break;
+
+                case TOKEN_PERCENT:
+                    if (right.number == 0)
+                    {
+                        fprintf(
+                            stderr,
+                            "LOIS: modulo by zero\n"
+                        );
+
+                        value_free(&left);
+                        value_free(&right);
+
+                        return value_none();
+                    }
+
+                    result =
+                        fmod(
+                            left.number,
+                            right.number
+                        );
+
+                    break;
+
+                case TOKEN_CARET:
+                    result =
+                        pow(
+                            left.number,
+                            right.number
+                        );
+
+                    break;
+
+                case TOKEN_GREATER:
+                    result =
+                        left.number >
+                        right.number;
+
+                    break;
+
+                case TOKEN_LESS:
+                    result =
+                        left.number <
+                        right.number;
+
+                    break;
+
+                case TOKEN_GREATER_EQUAL:
+                    result =
+                        left.number >=
+                        right.number;
+
+                    break;
+
+                case TOKEN_LESS_EQUAL:
+                    result =
+                        left.number <=
+                        right.number;
+
+                    break;
+
+                case TOKEN_EQUAL_EQUAL:
+                    result =
+                        left.number ==
+                        right.number;
+
+                    break;
+
+                case TOKEN_NOT_EQUAL:
+                    result =
+                        left.number !=
+                        right.number;
+
+                    break;
+
+                default:
+                    value_free(&left);
+                    value_free(&right);
+
+                    return value_none();
+            }
+
+            value_free(&left);
+            value_free(&right);
+
+            return value_number(result);
+        }
+
+        /*
+         * String equality.
+         */
+        if (
+            left.type == VALUE_STRING &&
+            right.type == VALUE_STRING
+        )
+        {
+            int comparison =
+                strcmp(
+                    left.string,
+                    right.string
+                );
+
+            double result;
+
+            if (
+                expr->operator ==
+                TOKEN_EQUAL_EQUAL
+            )
+            {
+                result =
+                    comparison == 0;
+            }
+            else if (
+                expr->operator ==
+                TOKEN_NOT_EQUAL
+            )
+            {
+                result =
+                    comparison != 0;
+            }
+            else
+            {
+                value_free(&left);
+                value_free(&right);
+
+                return value_none();
+            }
+
+            value_free(&left);
+            value_free(&right);
+
+            return value_number(result);
+        }
+
+        value_free(&left);
+        value_free(&right);
+    }
+
+    return value_none();
+}
+
+static void execute_output(Expr *expr)
+{
+    if (!expr)
+        return;
+
+    Value value =
+        evaluate(expr);
+
+    print_value(&value);
+
+    value_free(&value);
+
+    printf("\n");
+}
+
+static void execute_statement(Statement *statement);
+
+static void execute_if(Statement *statement)
+{
+    Value condition =
+        evaluate(statement->condition);
+
+    int true_value =
+        truthy(&condition);
+
+    value_free(&condition);
+
+    if (true_value)
+    {
+        execute_statement(
+            statement->body
+        );
+    }
+    else if (statement->else_body)
+    {
+        execute_statement(
+            statement->else_body
+        );
+    }
+}
+
+static void execute_statement(Statement *statement)
+{
+    while (statement)
+    {
+        switch (statement->type)
+        {
+            case STMT_ASSIGN:
+            {
+                /*
+                 * x = expression
+                 *
+                 * Always numeric.
+                 */
+                if (
+                    statement->extra &&
+                    strcasecmp(
+                        statement->extra,
+                        "num"
+                    ) == 0 &&
+                    statement->expression
+                )
+                {
+                    Value value =
+                        evaluate(
+                            statement->expression
+                        );
+
+                    if (
+                        value.type !=
+                        VALUE_NUMBER
+                    )
+                    {
+                        fprintf(
+                            stderr,
+                            "LOIS: expected number in numeric assignment to %s\n",
+                            statement->name
+                        );
+
+                        value_free(&value);
+                        break;
+                    }
+
+                    set_variable(
+                        statement->name,
+                        value,
+                        1
+                    );
+
+                    break;
+                }
+
+                /*
+                 * name is num
+                 */
+                if (
+                    statement->extra &&
+                    strcasecmp(
+                        statement->extra,
+                        "num"
+                    ) == 0
+                )
+                {
+                    set_variable(
+                        statement->name,
+                        value_number(0),
+                        1
+                    );
+
+                    break;
+                }
+
+                Value value =
+                    evaluate(
+                        statement->expression
+                    );
+
+                set_variable(
+                    statement->name,
+                    value,
+                    value.type == VALUE_NUMBER
+                );
+
+                break;
+            }
+
+            case STMT_INPUT:
+            {
+                char buffer[1024];
+
+                printf(
+                    "%s: ",
+                    statement->name
+                );
+
+                fflush(stdout);
+
+                if (
+                    fgets(
+                        buffer,
+                        sizeof(buffer),
+                        stdin
+                    )
+                )
+                {
+                    buffer[
+                        strcspn(
+                            buffer,
+                            "\n"
+                        )
+                    ] = '\0';
+
+                    Variable *variable =
+                        find_variable(
+                            statement->name
+                        );
+
+                    if (
+                        variable &&
+                        variable->is_num
+                    )
+                    {
+                        char *end;
+
+                        double number =
+                            strtod(
+                                buffer,
+                                &end
+                            );
+
+                        set_variable(
+                            statement->name,
+                            value_number(number),
+                            1
+                        );
+                    }
+                    else
+                    {
+                        set_variable(
+                            statement->name,
+                            value_string(buffer),
+                            0
+                        );
+                    }
+                }
+
+                break;
+            }
+
+            case STMT_OUTPUT:
+                execute_output(
+                    statement->expression
+                );
+                break;
+
+            case STMT_IF:
+                execute_if(statement);
+                break;
+        }
+
+        statement =
+            statement->next;
+    }
+}
+
+void interpreter_run(Statement *program)
+{
+    variable_count = 0;
+
+    execute_statement(program);
+
+    for (int i = 0; i < variable_count; i++)
+    {
+        free(variables[i].name);
+
+        value_free(
+            &variables[i].value
+        );
+    }
+
+    variable_count = 0;
+}

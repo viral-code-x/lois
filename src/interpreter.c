@@ -678,7 +678,46 @@ static void execute_output(Expr *expr)
     printf("\n");
 }
 
+
 static void execute_statement(Statement *statement);
+
+static void execute_repeat(Statement *statement)
+{
+    if (!statement || !statement->count)
+        return;
+
+    Value count =
+        evaluate(statement->count);
+
+    if (
+        count.type != VALUE_NUMBER &&
+        count.type != VALUE_BOOL
+    )
+    {
+        fprintf(
+            stderr,
+            "LOIS: repeat count must be a number\n"
+        );
+
+        value_free(&count);
+        return;
+    }
+
+    int repetitions =
+        (int)count.number;
+
+    value_free(&count);
+
+    if (repetitions <= 0)
+        return;
+
+    for (int i = 0; i < repetitions; i++)
+    {
+        execute_statement(statement->body);
+    }
+}
+
+
 
 static void execute_if(Statement *statement)
 {
@@ -701,6 +740,67 @@ static void execute_if(Statement *statement)
         execute_statement(
             statement->else_body
         );
+    }
+}
+
+/*
+ * WHILE LOOP
+ *
+ * Re-evaluate the condition before every iteration.
+ *
+ * Example:
+ *
+ *     x is 1
+ *
+ *     while x <= 5
+ *     then output is x
+ *     x = x + 1
+ *
+ * The loop keeps executing its body while the
+ * condition remains truthy.
+ */
+static void execute_while(Statement *statement)
+{
+    /*
+     * Safety guard against accidental infinite loops.
+     *
+     * This is deliberately generous. It prevents a
+     * broken program from locking the interpreter
+     * forever while still allowing normal loops.
+     */
+    unsigned long long iterations = 0;
+
+    const unsigned long long MAX_LOOP_ITERATIONS =
+        1000000ULL;
+
+    while (1)
+    {
+        Value condition =
+            evaluate(statement->condition);
+
+        int true_value =
+            truthy(&condition);
+
+        value_free(&condition);
+
+        if (!true_value)
+            break;
+
+        execute_statement(
+            statement->body
+        );
+
+        iterations++;
+
+        if (iterations >= MAX_LOOP_ITERATIONS)
+        {
+            fprintf(
+                stderr,
+                "LOIS: loop exceeded maximum iteration limit\n"
+            );
+
+            break;
+        }
     }
 }
 
@@ -860,6 +960,14 @@ static void execute_statement(Statement *statement)
 
             case STMT_IF:
                 execute_if(statement);
+                break;
+
+            case STMT_REPEAT:
+                execute_repeat(statement);
+                break;
+
+            case STMT_WHILE:
+                execute_while(statement);
                 break;
         }
 

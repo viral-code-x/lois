@@ -300,6 +300,26 @@ static Expr *parse_expression(int minimum_precedence)
 
     while (1)
     {
+        /*
+         * Stop expressions at statement boundaries.
+         *
+         * Example:
+         *
+         *     if True
+         *     then output is hello
+         *
+         * "then" is not part of the condition.
+         */
+        if (
+            current()->type == TOKEN_NEWLINE ||
+            word_is("then") ||
+            word_is("else") ||
+            word_is("but")
+        )
+        {
+            break;
+        }
+
         TokenType operator =
             current()->type;
 
@@ -473,7 +493,7 @@ static Statement *parse_assignment_statement(void)
     /*
      * name = expression
      *
-     * = means numeric assignment.
+     * "=" means numeric assignment.
      */
     if (current()->type == TOKEN_ASSIGN)
     {
@@ -502,6 +522,8 @@ static Statement *parse_assignment_statement(void)
 
     /*
      * name is num
+     *
+     * Declares a numeric variable initialized to 0.
      */
     if (word_is("num"))
     {
@@ -516,57 +538,23 @@ static Statement *parse_assignment_statement(void)
     /*
      * name is expression
      *
-     * For a bare word, preserve the old LOIS
-     * behavior: it is a literal string.
+     * Parse the complete expression here.
+     *
+     * This is important because:
+     *
+     *     y is x
+     *     z is x + 5
+     *     adult is age >= 18
+     *     ok is True and False
+     *
+     * must all become real expression trees.
+     *
+     * An unresolved bare word is still handled by the
+     * interpreter as a string literal, preserving the
+     * old behavior for things like:
+     *
+     *     name is hello
      */
-    if (current()->type == TOKEN_WORD)
-    {
-        statement->expression =
-            new_expr(EXPR_LITERAL);
-
-        statement->expression->text =
-            strdup(current()->text);
-
-        advance();
-
-        return statement;
-    }
-
-    if (current()->type == TOKEN_STRING)
-    {
-        statement->expression =
-            new_expr(EXPR_LITERAL);
-
-        statement->expression->text =
-            strdup(current()->text);
-
-        advance();
-
-        return statement;
-    }
-
-    if (current()->type == TOKEN_NUMBER)
-    {
-        statement->expression =
-            new_expr(EXPR_LITERAL);
-
-        char buffer[64];
-
-        snprintf(
-            buffer,
-            sizeof(buffer),
-            "%.15g",
-            current()->number
-        );
-
-        statement->expression->text =
-            strdup(buffer);
-
-        advance();
-
-        return statement;
-    }
-
     statement->expression =
         parse_expression(0);
 
@@ -793,6 +781,184 @@ static Statement *parse_if_statement(void)
     return statement;
 }
 
+
+/*
+ * Parse:
+ *
+ *     while condition
+ *     then statement
+ *
+ * The condition uses the normal expression parser,
+ * so all existing Boolean/comparison operators work:
+ *
+ *     while x < 10
+ *     then ...
+ *
+ *     while x >= 1 and x <= 10
+ *     then ...
+ *
+ *     while not False
+ *     then ...
+ */
+static Statement *parse_while_statement(void)
+{
+    if (!word_is("while"))
+        return NULL;
+
+    advance();
+
+    Statement *statement =
+        new_statement(STMT_WHILE);
+
+    /*
+     * Parse the loop condition.
+     */
+    statement->condition =
+        parse_expression(0);
+
+    if (!statement->condition)
+    {
+        fprintf(
+            stderr,
+            "LOIS: expected condition after 'while'\\n"
+        );
+
+        parser_free(statement);
+
+        return NULL;
+    }
+
+    /*
+     * The condition may be followed by a newline.
+     */
+    skip_newlines();
+
+    /*
+     * LOIS uses:
+     *
+     *     while condition
+     *     then body
+     *
+     * Require "then" so malformed loops fail
+     * clearly instead of being silently accepted.
+     */
+    if (!word_is("then"))
+    {
+        fprintf(
+            stderr,
+            "LOIS: expected 'then' after while condition\\n"
+        );
+
+        parser_free(statement);
+
+        return NULL;
+    }
+
+    advance();
+
+    /*
+     * Parse the first statement of the loop body.
+     */
+    statement->body =
+        parse_single_body();
+
+    /*
+     * Consume the remainder of the current body line.
+     */
+    while (
+        current()->type != TOKEN_NEWLINE &&
+        current()->type != TOKEN_EOF
+    )
+    {
+        advance();
+    }
+
+    return statement;
+}
+
+
+/*
+ * Parse:
+ *
+ *     repeat 5
+ *     then output is hello
+ *
+ * The repeat count is a normal expression, so this also
+ * allows:
+ *
+ *     repeat x
+ *     then output is hello
+ *
+ * and:
+ *
+ *     repeat 2 + 3
+ *     then output is hello
+ */
+static Statement *parse_repeat_statement(void)
+{
+    if (!word_is("repeat"))
+        return NULL;
+
+    advance();
+
+    Statement *statement =
+        new_statement(STMT_REPEAT);
+
+    /*
+     * Parse the repetition count.
+     */
+    statement->count =
+        parse_expression(0);
+
+    if (!statement->count)
+    {
+        fprintf(
+            stderr,
+            "LOIS: expected count after 'repeat'\n"
+        );
+
+        parser_free(statement);
+        return NULL;
+    }
+
+    /*
+     * Move to the "then" line.
+     */
+    skip_newlines();
+
+    if (!word_is("then"))
+    {
+        fprintf(
+            stderr,
+            "LOIS: expected 'then' after repeat count\n"
+        );
+
+        parser_free(statement);
+        return NULL;
+    }
+
+    advance();
+
+    /*
+     * Parse the single body statement.
+     */
+    statement->body =
+        parse_single_body();
+
+    /*
+     * Consume the rest of the body line.
+     */
+    while (
+        current()->type != TOKEN_NEWLINE &&
+        current()->type != TOKEN_EOF
+    )
+    {
+        advance();
+    }
+
+    return statement;
+}
+
 static Statement *parse_statement(void)
 {
     skip_newlines();
@@ -808,6 +974,12 @@ static Statement *parse_statement(void)
 
     if (word_is("if"))
         return parse_if_statement();
+
+    if (word_is("while"))
+        return parse_while_statement();
+
+    if (word_is("repeat"))
+        return parse_repeat_statement();
 
     if (current()->type == TOKEN_WORD)
         return parse_assignment_statement();
@@ -874,6 +1046,7 @@ void parser_free(Statement *statement)
 
         free_expr(statement->expression);
         free_expr(statement->condition);
+        free_expr(statement->count);
 
         parser_free(statement->body);
         parser_free(statement->else_body);

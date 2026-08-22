@@ -1,0 +1,19 @@
+a is True
+b is False
+
+output is a
+output is b
+
+output is not True
+output is not False
+
+output is not a
+output is not b
+
+output is (not a)
+output is (not b)
+
+output is a == True
+output is b == False
+output is a != False
+output is b != True

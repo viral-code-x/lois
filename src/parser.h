@@ -33,7 +33,9 @@ typedef enum
     STMT_ASSIGN,
     STMT_INPUT,
     STMT_OUTPUT,
-    STMT_IF
+    STMT_IF,
+    STMT_WHILE,
+    STMT_REPEAT
 } StatementType;
 
 typedef struct Statement Statement;
@@ -47,6 +49,13 @@ struct Statement
 
     Expr *expression;
     Expr *condition;
+
+    /*
+     * Used by repeat.
+     *
+     * expression contains the number of repetitions.
+     */
+    Expr *count;
 
     Statement *body;
     Statement *else_body;

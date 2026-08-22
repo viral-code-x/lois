@@ -1,0 +1,4 @@
+output is not True
+output is not False
+output is True != False
+output is True != True
