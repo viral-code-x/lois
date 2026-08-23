@@ -1,0 +1,8 @@
+square function x it returns x * x
+function is square 5
+
+add function x y it returns x + y
+function is add 2 3
+
+double function x it returns x + x
+function is double 7
