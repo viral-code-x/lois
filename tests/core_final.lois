@@ -1,0 +1,20 @@
+x is 10
+y is 5
+
+output is x + y
+output is x > y
+output is not false
+
+if x > y
+then output is "comparison works"
+
+count is 1
+while count <= 3
+then output is count
+count = count + 1
+
+square function x it returns x * x
+function is square 7
+
+add function a b it returns a + b
+function is add 10 20

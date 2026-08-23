@@ -137,6 +137,7 @@ static int precedence(TokenType type)
 
 static Expr *parse_expression(int minimum_precedence);
 static Expr *parse_primary(void);
+static Statement *parse_statement(void);
 
 static int word_exact(const char *word)
 {
@@ -1129,7 +1130,7 @@ static Statement *parse_while_statement(void)
     {
         fprintf(
             stderr,
-            "LOIS: expected condition after 'while'\\n"
+            "LOIS: expected condition after 'while'\n"
         );
 
         parser_free(statement);
@@ -1138,24 +1139,15 @@ static Statement *parse_while_statement(void)
     }
 
     /*
-     * The condition may be followed by a newline.
+     * Move to the "then" line.
      */
     skip_newlines();
 
-    /*
-     * LOIS uses:
-     *
-     *     while condition
-     *     then body
-     *
-     * Require "then" so malformed loops fail
-     * clearly instead of being silently accepted.
-     */
     if (!word_is("then"))
     {
         fprintf(
             stderr,
-            "LOIS: expected 'then' after while condition\\n"
+            "LOIS: expected 'then' after while condition\n"
         );
 
         parser_free(statement);
@@ -1168,11 +1160,25 @@ static Statement *parse_while_statement(void)
     /*
      * Parse the first statement of the loop body.
      */
-    statement->body =
+    Statement *body =
         parse_single_body();
 
+    if (!body)
+    {
+        fprintf(
+            stderr,
+            "LOIS: expected statement after 'then' in while loop\n"
+        );
+
+        parser_free(statement);
+
+        return NULL;
+    }
+
+    statement->body = body;
+
     /*
-     * Consume the remainder of the current body line.
+     * The first body statement ends at the newline.
      */
     while (
         current()->type != TOKEN_NEWLINE &&
@@ -1180,6 +1186,93 @@ static Statement *parse_while_statement(void)
     )
     {
         advance();
+    }
+
+    /*
+     * Additional statements immediately following the
+     * while body belong to the loop.
+     *
+     * Example:
+     *
+     *     while count <= 3
+     *     then output is count
+     *     count = count + 1
+     *
+     * becomes:
+     *
+     *     WHILE
+     *       body -> OUTPUT -> ASSIGN
+     *
+     * This is important because execute_statement()
+     * already walks statement->next.
+     */
+    Statement *body_tail = body;
+
+    while (body_tail->next)
+        body_tail = body_tail->next;
+
+    while (1)
+    {
+        /*
+         * Move to the next logical line.
+         */
+        skip_newlines();
+
+        /*
+         * EOF means the loop body is finished.
+         */
+        if (current()->type == TOKEN_EOF)
+            break;
+
+        /*
+         * Stop before another top-level construct.
+         *
+         * Function definitions, conditionals, loops,
+         * repeat statements, etc. should remain top-level.
+         */
+        if (
+            word_is("if") ||
+            word_is("while") ||
+            word_is("repeat") ||
+            word_is("function") ||
+            word_is("return")
+        )
+        {
+            break;
+        }
+
+        /*
+         * Parse another normal statement.
+         *
+         * This allows:
+         *
+         *     count = count + 1
+         *
+         * after the "then" statement.
+         */
+        Statement *next_body =
+            parse_statement();
+
+        if (!next_body)
+            break;
+
+        /*
+         * Attach it to the loop body chain.
+         */
+        body_tail->next = next_body;
+
+        body_tail = next_body;
+
+        /*
+         * Consume the rest of that logical line.
+         */
+        while (
+            current()->type != TOKEN_NEWLINE &&
+            current()->type != TOKEN_EOF
+        )
+        {
+            advance();
+        }
     }
 
     return statement;
