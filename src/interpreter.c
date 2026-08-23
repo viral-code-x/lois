@@ -19,6 +19,111 @@ typedef struct
 } Variable;
 
 static Variable variables[MAX_VARIABLES];
+
+#define MAX_FUNCTIONS 256
+
+typedef struct
+{
+    char *name;
+
+    char *parameters[16];
+    int parameter_count;
+
+    Expr *expression;
+} Function;
+
+static Function functions[MAX_FUNCTIONS];
+static int function_count = 0;
+
+static Function *find_function(const char *name)
+{
+    for (int i = 0; i < function_count; i++)
+    {
+        if (
+            strcasecmp(
+                functions[i].name,
+                name
+            ) == 0
+        )
+        {
+            return &functions[i];
+        }
+    }
+
+    return NULL;
+}
+
+static void set_function(
+    const char *name,
+    char **parameters,
+    int parameter_count,
+    Expr *expression
+)
+{
+    Function *existing =
+        find_function(name);
+
+    if (existing)
+    {
+        for (int i = 0; i < existing->parameter_count; i++)
+            free(existing->parameters[i]);
+
+        existing->parameter_count =
+            parameter_count;
+
+        for (int i = 0; i < parameter_count; i++)
+        {
+            existing->parameters[i] =
+                strdup(parameters[i]);
+        }
+
+        existing->expression =
+            expression;
+
+        return;
+    }
+
+    if (function_count >= MAX_FUNCTIONS)
+    {
+        fprintf(
+            stderr,
+            "LOIS: too many functions\n"
+        );
+
+        exit(1);
+    }
+
+    functions[function_count].name =
+        strdup(name);
+
+    functions[function_count].parameter_count =
+        parameter_count;
+
+    for (int i = 0; i < parameter_count; i++)
+    {
+        functions[function_count].parameters[i] =
+            strdup(parameters[i]);
+    }
+
+    functions[function_count].expression =
+        expression;
+
+    function_count++;
+}
+
+static void free_functions(void)
+{
+    for (int i = 0; i < function_count; i++)
+    {
+        free(functions[i].name);
+
+        for (int j = 0; j < functions[i].parameter_count; j++)
+            free(functions[i].parameters[j]);
+    }
+
+    function_count = 0;
+}
+
 static int variable_count = 0;
 
 static Variable *find_variable(const char *name)
@@ -810,6 +915,221 @@ static void execute_statement(Statement *statement)
     {
         switch (statement->type)
         {
+            case STMT_FUNCTION:
+            {
+                set_function(
+                    statement->name,
+                    statement->parameters,
+                    statement->parameter_count,
+                    statement->expression
+                );
+
+                /*
+                 * The expression belongs to the parser tree.
+                 * Do not free it here.
+                 */
+                statement->expression = NULL;
+
+                break;
+            }
+
+            case STMT_FUNCTION_CALL:
+            {
+                Function *function =
+                    find_function(statement->name);
+
+                if (!function)
+                {
+                    fprintf(
+                        stderr,
+                        "LOIS: no function named %s\n",
+                        statement->name
+                    );
+
+                    break;
+                }
+
+                if (
+                    statement->argument_count !=
+                    function->parameter_count
+                )
+                {
+                    fprintf(
+                        stderr,
+                        "LOIS: function %s expects %d argument(s), got %d\n",
+                        function->name,
+                        function->parameter_count,
+                        statement->argument_count
+                    );
+
+                    break;
+                }
+
+                /*
+                 * Evaluate all arguments BEFORE replacing
+                 * the parameter variables.
+                 */
+                Value arguments[16];
+
+                for (int i = 0;
+                     i < statement->argument_count;
+                     i++)
+                {
+                    arguments[i] =
+                        evaluate(
+                            statement->arguments[i]
+                        );
+                }
+
+                /*
+                 * Save existing variables with the same
+                 * names as parameters.
+                 */
+                Variable saved[16];
+                int saved_count = 0;
+
+                for (int i = 0;
+                     i < function->parameter_count;
+                     i++)
+                {
+                    Variable *existing =
+                        find_variable(
+                            function->parameters[i]
+                        );
+
+                    if (existing)
+                    {
+                        saved[saved_count].name =
+                            strdup(existing->name);
+
+                        saved[saved_count].value =
+                            value_copy(&existing->value);
+
+                        saved[saved_count].is_num =
+                            existing->is_num;
+
+                        saved_count++;
+                    }
+
+                    set_variable(
+                        function->parameters[i],
+                        value_copy(&arguments[i]),
+                        arguments[i].type == VALUE_NUMBER
+                    );
+                }
+
+                Value result;
+
+                if (function->expression)
+                {
+                    result =
+                        evaluate(
+                            function->expression
+                        );
+                }
+                else
+                {
+                    result =
+                        value_number(0);
+                }
+
+                /*
+                 * Remove temporary parameter variables.
+                 */
+                for (int i = 0;
+                     i < function->parameter_count;
+                     i++)
+                {
+                    Variable *variable =
+                        find_variable(
+                            function->parameters[i]
+                        );
+
+                    if (variable)
+                    {
+                        value_free(
+                            &variable->value
+                        );
+
+                        free(variable->name);
+
+                        int index =
+                            (int)(variable - variables);
+
+                        for (int j = index;
+                             j < variable_count - 1;
+                             j++)
+                        {
+                            variables[j] =
+                                variables[j + 1];
+                        }
+
+                        variable_count--;
+                    }
+                }
+
+                /*
+                 * Restore variables that existed before
+                 * the call.
+                 */
+                for (int i = 0;
+                     i < saved_count;
+                     i++)
+                {
+                    set_variable(
+                        saved[i].name,
+                        saved[i].value,
+                        saved[i].is_num
+                    );
+
+                    free(saved[i].name);
+                }
+
+                for (int i = 0;
+                     i < statement->argument_count;
+                     i++)
+                {
+                    value_free(&arguments[i]);
+                }
+
+                print_value(&result);
+                printf("\n");
+
+                value_free(&result);
+
+                break;
+            }
+
+            case STMT_RETURN:
+            {
+                /*
+                 * Return is currently an expression result.
+                 *
+                 * Bare "return" means 0.
+                 */
+                Value result;
+
+                if (statement->expression)
+                {
+                    result =
+                        evaluate(
+                            statement->expression
+                        );
+                }
+                else
+                {
+                    result =
+                        value_number(0);
+                }
+
+                print_value(&result);
+                printf("\n");
+
+                value_free(&result);
+
+                break;
+            }
+
             case STMT_ASSIGN:
             {
                 /*
@@ -992,4 +1312,6 @@ void interpreter_run(Statement *program)
     }
 
     variable_count = 0;
+
+    free_functions();
 }

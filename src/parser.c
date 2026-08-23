@@ -561,6 +561,315 @@ static Statement *parse_assignment_statement(void)
     return statement;
 }
 
+
+static Statement *parse_function_statement(void)
+{
+    /*
+     * Supported:
+     *
+     *     greet function is "hello"
+     *     greet function x it returns x * x
+     *     add function x y it returns x + y
+     *
+     *     greet is function it returns "hello"
+     *     power = function it returns x * x
+     */
+
+    if (current()->type != TOKEN_WORD)
+        return NULL;
+
+    /*
+     * name function ...
+     */
+    if (peek_word_is(1, "function"))
+    {
+        char *name = strdup(current()->text);
+
+        advance(); /* name */
+        advance(); /* function */
+
+        Statement *statement =
+            new_statement(STMT_FUNCTION);
+
+        statement->name = name;
+
+        /*
+         * "is" is only a separator here.
+         */
+        if (word_is("is"))
+            advance();
+
+        /*
+         * Collect parameter names until:
+         *
+         *     it
+         *     returns
+         *     newline
+         *     EOF
+         */
+        while (
+            current()->type == TOKEN_WORD &&
+            !word_is("it") &&
+            !word_is("returns")
+        )
+        {
+            if (statement->parameter_count >= 16)
+            {
+                fprintf(
+                    stderr,
+                    "LOIS: too many function parameters\n"
+                );
+                break;
+            }
+
+            statement->parameters[
+                statement->parameter_count++
+            ] = strdup(current()->text);
+
+            advance();
+        }
+
+        /*
+         * Optional "it returns" / "returns".
+         */
+        if (word_is("it"))
+            advance();
+
+        if (word_is("returns"))
+            advance();
+
+        /*
+         * No expression means return 0.
+         */
+        if (
+            current()->type != TOKEN_NEWLINE &&
+            current()->type != TOKEN_EOF
+        )
+        {
+            statement->expression =
+                parse_expression(0);
+        }
+
+        return statement;
+    }
+
+    /*
+     * name is function ...
+     */
+    if (
+        peek_word_is(1, "is") &&
+        peek_word_is(2, "function")
+    )
+    {
+        char *name = strdup(current()->text);
+
+        advance(); /* name */
+        advance(); /* is */
+        advance(); /* function */
+
+        Statement *statement =
+            new_statement(STMT_FUNCTION);
+
+        statement->name = name;
+
+        /*
+         * Parameters are allowed here too:
+         *
+         * add is function x y it returns x + y
+         */
+        while (
+            current()->type == TOKEN_WORD &&
+            !word_is("it") &&
+            !word_is("returns")
+        )
+        {
+            if (statement->parameter_count >= 16)
+                break;
+
+            statement->parameters[
+                statement->parameter_count++
+            ] = strdup(current()->text);
+
+            advance();
+        }
+
+        if (word_is("it"))
+            advance();
+
+        if (word_is("returns"))
+            advance();
+
+        if (
+            current()->type != TOKEN_NEWLINE &&
+            current()->type != TOKEN_EOF
+        )
+        {
+            statement->expression =
+                parse_expression(0);
+        }
+
+        return statement;
+    }
+
+    /*
+     * name = function ...
+     */
+    if (
+        current()->type == TOKEN_WORD &&
+        peek(1)->type == TOKEN_ASSIGN &&
+        peek_word_is(2, "function")
+    )
+    {
+        char *name = strdup(current()->text);
+
+        advance(); /* name */
+        advance(); /* = */
+        advance(); /* function */
+
+        Statement *statement =
+            new_statement(STMT_FUNCTION);
+
+        statement->name = name;
+
+        while (
+            current()->type == TOKEN_WORD &&
+            !word_is("it") &&
+            !word_is("returns")
+        )
+        {
+            if (statement->parameter_count >= 16)
+                break;
+
+            statement->parameters[
+                statement->parameter_count++
+            ] = strdup(current()->text);
+
+            advance();
+        }
+
+        if (word_is("it"))
+            advance();
+
+        if (word_is("returns"))
+            advance();
+
+        if (
+            current()->type != TOKEN_NEWLINE &&
+            current()->type != TOKEN_EOF
+        )
+        {
+            statement->expression =
+                parse_expression(0);
+        }
+
+        return statement;
+    }
+
+    return NULL;
+}
+
+static Statement *parse_return_statement(void)
+{
+    /*
+     * return
+     * return 1
+     *
+     * "return" by itself always returns 0.
+     */
+
+    if (!word_is("return"))
+        return NULL;
+
+    advance();
+
+    Statement *statement =
+        new_statement(STMT_RETURN);
+
+    if (
+        current()->type != TOKEN_NEWLINE &&
+        current()->type != TOKEN_EOF
+    )
+    {
+        statement->expression =
+            parse_expression(0);
+    }
+
+    return statement;
+}
+
+static Statement *parse_function_call_statement(void)
+{
+    /*
+     * function is greet
+     * function is square 5
+     * function is add 2 3
+     */
+
+    if (
+        !word_is("function") ||
+        !peek_word_is(1, "is")
+    )
+    {
+        return NULL;
+    }
+
+    advance(); /* function */
+    advance(); /* is */
+
+    if (current()->type != TOKEN_WORD)
+    {
+        fprintf(
+            stderr,
+            "LOIS: expected function name after 'function is'\n"
+        );
+
+        return NULL;
+    }
+
+    Statement *statement =
+        new_statement(STMT_FUNCTION_CALL);
+
+    statement->name =
+        strdup(current()->text);
+
+    advance();
+
+    /*
+     * Arguments are primary expressions.
+     *
+     * This supports:
+     *
+     *     function is square 5
+     *     function is add 2 3
+     *     function is square x
+     */
+    while (
+        current()->type != TOKEN_NEWLINE &&
+        current()->type != TOKEN_EOF
+    )
+    {
+        if (statement->argument_count >= 16)
+        {
+            fprintf(
+                stderr,
+                "LOIS: too many function arguments\n"
+            );
+            break;
+        }
+
+        Expr *argument = parse_primary();
+
+        if (!argument)
+            break;
+
+        statement->arguments[
+            statement->argument_count++
+        ] = argument;
+    }
+
+    return statement;
+}
+
 static Statement *parse_single_body(void)
 {
     skip_newlines();
@@ -981,6 +1290,37 @@ static Statement *parse_statement(void)
     if (word_is("repeat"))
         return parse_repeat_statement();
 
+    if (word_is("return"))
+        return parse_return_statement();
+
+    if (
+        word_is("function") &&
+        peek_word_is(1, "is")
+    )
+        return parse_function_call_statement();
+
+    if (
+        current()->type == TOKEN_WORD &&
+        (
+            peek_word_is(1, "function") ||
+            (
+                peek_word_is(1, "is") &&
+                peek_word_is(2, "function")
+            ) ||
+            (
+                peek(1)->type == TOKEN_ASSIGN &&
+                peek_word_is(2, "function")
+            )
+        )
+    )
+    {
+        Statement *function =
+            parse_function_statement();
+
+        if (function)
+            return function;
+    }
+
     if (current()->type == TOKEN_WORD)
         return parse_assignment_statement();
 
@@ -1043,6 +1383,12 @@ void parser_free(Statement *statement)
 
         free(statement->name);
         free(statement->extra);
+
+        for (int i = 0; i < statement->parameter_count; i++)
+            free(statement->parameters[i]);
+
+        for (int i = 0; i < statement->argument_count; i++)
+            free_expr(statement->arguments[i]);
 
         free_expr(statement->expression);
         free_expr(statement->condition);
