@@ -1,3 +1,0 @@
-/workspaces/lois/build/CMakeFiles/lois.dir
-/workspaces/lois/build/CMakeFiles/edit_cache.dir
-/workspaces/lois/build/CMakeFiles/rebuild_cache.dir
