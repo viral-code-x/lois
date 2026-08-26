@@ -1,0 +1,6 @@
+output is "enter your age:"
+input is age
+
+output is age
+output is age < 13
+output is age < 18

@@ -380,6 +380,18 @@ TokenList lexer_tokenize(const char *source)
                 type = TOKEN_RPAREN;
                 break;
 
+            case '{':
+                type = TOKEN_LBRACE;
+                break;
+
+            case '}':
+                type = TOKEN_RBRACE;
+                break;
+
+            case ',':
+                type = TOKEN_COMMA;
+                break;
+
             case '|':
                 type = TOKEN_ABS;
                 break;
