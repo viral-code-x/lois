@@ -1580,6 +1580,12 @@ static void free_expr(Expr *expr)
     free_expr(expr->left);
     free_expr(expr->right);
 
+    if (expr->type == EXPR_CALL)
+    {
+        free(expr->call_name);
+        free_expr(expr->call_argument);
+    }
+
     free(expr->text);
     free(expr);
 }
