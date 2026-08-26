@@ -39,6 +39,7 @@ typedef enum
     STMT_OUTPUT,
     STMT_IF,
     STMT_WHILE,
+    STMT_FOR,
     STMT_REPEAT,
     STMT_FUNCTION,
     STMT_FUNCTION_CALL,
@@ -53,6 +54,9 @@ struct Statement
 
     char *name;
     char *extra;
+
+    /* for-loop variable */
+    char *loop_variable;
 
     char *parameters[16];
     int parameter_count;

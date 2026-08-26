@@ -1,0 +1,3 @@
+for x<=10
+then for y<=10
+then output is x*y

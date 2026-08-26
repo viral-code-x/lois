@@ -1431,6 +1431,168 @@ static Statement *parse_while_statement(void)
  *     repeat 2 + 3
  *     then output is hello
  */
+
+/*
+ * Parse:
+ *
+ *     for x<=10
+ *     then output is x
+ *
+ *     for x<=10
+ *     then for y<=10
+ *     then output is x*y
+ *
+ * A for loop always starts its variable at 1 and
+ * increments it by 1 after each iteration.
+ *
+ * "then" attaches exactly one statement as the body.
+ * This means nesting does not require indentation,
+ * braces, or an "end" keyword.
+ */
+static Statement *parse_for_statement(void)
+{
+    if (!word_is("for"))
+        return NULL;
+
+    advance();
+
+    /*
+     * The loop variable must be a word.
+     *
+     *     for x<=10
+     *         ^
+     */
+    if (current()->type != TOKEN_WORD)
+    {
+        fprintf(
+            stderr,
+            "LOIS: expected loop variable after 'for'\n"
+        );
+
+        return NULL;
+    }
+
+    char *loop_variable =
+        strdup(current()->text);
+
+    advance();
+
+    /*
+     * Currently the simple for syntax is:
+     *
+     *     for x<=10
+     *
+     * We deliberately require <=.
+     */
+    if (current()->type != TOKEN_LESS_EQUAL)
+    {
+        fprintf(
+            stderr,
+            "LOIS: expected '<=' after for loop variable\n"
+        );
+
+        free(loop_variable);
+        return NULL;
+    }
+
+    advance();
+
+    /*
+     * Parse only the limit expression.
+     */
+    Expr *limit =
+        parse_expression(0);
+
+    if (!limit)
+    {
+        fprintf(
+            stderr,
+            "LOIS: expected limit after 'for %s<='\n",
+            loop_variable
+        );
+
+        free(loop_variable);
+        return NULL;
+    }
+
+    /*
+     * Build:
+     *
+     *     x <= limit
+     *
+     * as the normal condition expression.
+     */
+    Expr *variable =
+        new_expr(EXPR_VARIABLE);
+
+    variable->text =
+        strdup(loop_variable);
+
+    Expr *condition =
+        make_binary(
+            variable,
+            limit,
+            TOKEN_LESS_EQUAL
+        );
+
+    Statement *statement =
+        new_statement(STMT_FOR);
+
+    statement->loop_variable =
+        loop_variable;
+
+    statement->condition =
+        condition;
+
+    /*
+     * "then" may be on the next line.
+     */
+    skip_newlines();
+
+    if (!word_is("then"))
+    {
+        fprintf(
+            stderr,
+            "LOIS: expected 'then' after for condition\n"
+        );
+
+        parser_free(statement);
+        return NULL;
+    }
+
+    advance();
+
+    /*
+     * Exactly one statement is the body.
+     *
+     * This is what gives us clean nesting:
+     *
+     *     for x<=10
+     *     then for y<=10
+     *     then output is x*y
+     *
+     * Outer FOR
+     *   body -> Inner FOR
+     *              body -> OUTPUT
+     */
+    statement->body =
+        parse_statement();
+
+    if (!statement->body)
+    {
+        fprintf(
+            stderr,
+            "LOIS: expected statement after 'then' in for loop\n"
+        );
+
+        parser_free(statement);
+        return NULL;
+    }
+
+    return statement;
+}
+
+
 static Statement *parse_repeat_statement(void)
 {
     if (!word_is("repeat"))
@@ -1514,6 +1676,9 @@ static Statement *parse_statement(void)
 
     if (word_is("while"))
         return parse_while_statement();
+
+    if (word_is("for"))
+        return parse_for_statement();
 
     if (word_is("repeat"))
         return parse_repeat_statement();
@@ -1617,6 +1782,7 @@ void parser_free(Statement *statement)
 
         free(statement->name);
         free(statement->extra);
+        free(statement->loop_variable);
 
         for (int i = 0; i < statement->parameter_count; i++)
             free(statement->parameters[i]);

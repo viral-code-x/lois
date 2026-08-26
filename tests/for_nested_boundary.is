@@ -1,0 +1,5 @@
+for x<=2
+then for y<=2
+then output is x*y
+
+output is finished

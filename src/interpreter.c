@@ -926,7 +926,106 @@ static void execute_output(Expr *expr)
 }
 
 
+
 static void execute_statement(Statement *statement);
+
+static void execute_for(Statement *statement)
+{
+    if (
+        !statement ||
+        !statement->condition ||
+        !statement->loop_variable
+    )
+        return;
+
+    /*
+     * A LOIS for loop starts at 1.
+     *
+     *     for x<=10
+     *
+     * means:
+     *
+     *     x = 1
+     *     while x <= 10
+     *         ...
+     *         x = x + 1
+     */
+    set_variable(
+        statement->loop_variable,
+        value_number(1),
+        1
+    );
+
+    unsigned long long iterations = 0;
+
+    const unsigned long long MAX_LOOP_ITERATIONS =
+        1000000ULL;
+
+    while (1)
+    {
+        Value condition =
+            evaluate(statement->condition);
+
+        int true_value =
+            truthy(&condition);
+
+        value_free(&condition);
+
+        if (!true_value)
+            break;
+
+        /*
+         * Execute the complete nested body.
+         *
+         * This is what allows:
+         *
+         *     for x<=10
+         *     then for y<=10
+         *     then output is x*y
+         */
+        execute_statement(
+            statement->body
+        );
+
+        /*
+         * Increment the loop variable.
+         */
+        Variable *variable =
+            find_variable(
+                statement->loop_variable
+            );
+
+        if (
+            !variable ||
+            variable->value.type != VALUE_NUMBER
+        )
+        {
+            fprintf(
+                stderr,
+                "LOIS: for loop variable '%s' must remain a number\n",
+                statement->loop_variable
+            );
+
+            break;
+        }
+
+        variable->value.number += 1;
+
+        iterations++;
+
+        if (iterations >= MAX_LOOP_ITERATIONS)
+        {
+            fprintf(
+                stderr,
+                "LOIS: for loop exceeded maximum iteration limit\n"
+            );
+
+            break;
+        }
+    }
+}
+
+
 
 static void execute_repeat(Statement *statement)
 {
@@ -1430,6 +1529,10 @@ static void execute_statement(Statement *statement)
 
             case STMT_WHILE:
                 execute_while(statement);
+                break;
+
+            case STMT_FOR:
+                execute_for(statement);
                 break;
         }
 
