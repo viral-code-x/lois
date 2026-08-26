@@ -1,0 +1,27 @@
+output is 2 + 3
+output is 10 - 4
+output is 6 * 7
+output is 20 / 5
+output is 17 % 5
+output is 2 ^ 5
+
+output is (2 + 3) * 4
+output is 2 + 3 * 4
+
+output is root(25)
+output is root3(27)
+output is root4(16)
+
+output is sin(0)
+output is cos(0)
+output is tan(0)
+output is log(100)
+output is ln(1)
+
+output is root(25) + 10
+output is root(16) * 5
+output is 2 ^ root(16)
+output is root(25 + 11)
+output is root(9) + root3(27)
+
+output is root(sin(0))

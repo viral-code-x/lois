@@ -267,6 +267,77 @@ static Value evaluate(Expr *expr)
         );
     }
 
+    if (expr->type == EXPR_CALL)
+    {
+        Value argument =
+            evaluate(expr->call_argument);
+
+        if (argument.type != VALUE_NUMBER)
+        {
+            fprintf(
+                stderr,
+                "LOIS: math function '%s' requires a number\n",
+                expr->call_name
+            );
+
+            value_free(&argument);
+            return value_none();
+        }
+
+        double x =
+            argument.number;
+
+        double result;
+
+        if (strcasecmp(expr->call_name, "root") == 0)
+        {
+            result = sqrt(x);
+        }
+        else if (strcasecmp(expr->call_name, "root3") == 0)
+        {
+            result = cbrt(x);
+        }
+        else if (strcasecmp(expr->call_name, "root4") == 0)
+        {
+            result = pow(x, 1.0 / 4.0);
+        }
+        else if (strcasecmp(expr->call_name, "sin") == 0)
+        {
+            result = sin(x);
+        }
+        else if (strcasecmp(expr->call_name, "cos") == 0)
+        {
+            result = cos(x);
+        }
+        else if (strcasecmp(expr->call_name, "tan") == 0)
+        {
+            result = tan(x);
+        }
+        else if (strcasecmp(expr->call_name, "log") == 0)
+        {
+            result = log10(x);
+        }
+        else if (strcasecmp(expr->call_name, "ln") == 0)
+        {
+            result = log(x);
+        }
+        else
+        {
+            fprintf(
+                stderr,
+                "LOIS: unknown math function '%s'\n",
+                expr->call_name
+            );
+
+            value_free(&argument);
+            return value_none();
+        }
+
+        value_free(&argument);
+
+        return value_number(result);
+    }
+
     if (expr->type == EXPR_UNARY)
     {
         Value right =

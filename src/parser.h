@@ -10,7 +10,8 @@ typedef enum
     EXPR_BOOLEAN,
     EXPR_VARIABLE,
     EXPR_BINARY,
-    EXPR_UNARY
+    EXPR_UNARY,
+    EXPR_CALL
 } ExprType;
 
 typedef struct Expr Expr;
@@ -26,6 +27,9 @@ struct Expr
 
     Expr *left;
     Expr *right;
+
+    char *call_name;
+    Expr *call_argument;
 };
 
 typedef enum

@@ -100,6 +100,23 @@ static Expr *make_unary(
     return expr;
 }
 
+static Expr *make_call(
+    const char *name,
+    Expr *argument
+)
+{
+    Expr *expr =
+        new_expr(EXPR_CALL);
+
+    expr->call_name =
+        strdup(name);
+
+    expr->call_argument =
+        argument;
+
+    return expr;
+}
+
 static int precedence(TokenType type)
 {
     switch (type)
@@ -238,6 +255,106 @@ static Expr *parse_primary(void)
             expr->number = 0;
 
             advance();
+
+            return expr;
+        }
+
+        /*
+         * Built-in/user function call.
+         *
+         * Example:
+         *
+         *     root(25)
+         *     sin(0)
+         *     root(sin(0))
+         */
+        if (peek(1)->type == TOKEN_LPAREN)
+        {
+            char *name =
+                strdup(token->text);
+
+            advance(); /* function name */
+            advance(); /* '(' */
+
+            Expr *argument =
+                parse_expression(0);
+
+            if (!argument)
+            {
+                free(name);
+                return NULL;
+            }
+
+            if (current()->type != TOKEN_RPAREN)
+            {
+                fprintf(
+                    stderr,
+                    "LOIS: expected ')' after function argument\\n"
+                );
+
+                free(name);
+                return NULL;
+            }
+
+            advance();
+
+            Expr *call =
+                make_call(
+                    name,
+                    argument
+                );
+
+            free(name);
+
+            return call;
+        }
+
+        /*
+         * Function call:
+         *
+         *     root(25)
+         *     sin(0)
+         *     cos(0)
+         *
+         * Function names remain ordinary TOKEN_WORDs.
+         */
+        if (peek(1)->type == TOKEN_LPAREN)
+        {
+            char *name =
+                strdup(token->text);
+
+            advance(); /* function name */
+            advance(); /* '(' */
+
+            Expr *argument =
+                parse_expression(0);
+
+            if (!argument)
+            {
+                free(name);
+                return NULL;
+            }
+
+            if (current()->type != TOKEN_RPAREN)
+            {
+                fprintf(
+                    stderr,
+                    "LOIS: expected ')' after function argument\n"
+                );
+
+                free(name);
+                return NULL;
+            }
+
+            advance(); /* ')' */
+
+            Expr *expr =
+                make_call(
+                    name,
+                    argument
+                );
+
+            free(name);
 
             return expr;
         }
