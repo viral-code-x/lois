@@ -164,10 +164,85 @@ static int word_exact(const char *word)
         strcmp(current()->text, word) == 0;
 }
 
+static Expr *parse_set_literal(void)
+{
+    /*
+     * LOIS set literal:
+     *
+     *     {1,2,3,4}
+     *
+     * Elements are expressions separated by commas.
+     */
+    if (current()->type != TOKEN_LBRACE)
+        return NULL;
+
+    advance(); /* { */
+
+    Expr *set = new_expr(EXPR_SET);
+
+    set->left = NULL;
+    set->right = NULL;
+
+    /*
+     * Store the elements as a linked expression chain:
+     *
+     * set->left = first element
+     * element->right = next element
+     */
+    Expr *tail = NULL;
+
+    if (current()->type == TOKEN_RBRACE)
+    {
+        advance();
+        return set;
+    }
+
+    while (1)
+    {
+        Expr *element = parse_expression(0);
+
+        if (!element)
+        {
+            fprintf(stderr, "LOIS: invalid set element\\n");
+            return set;
+        }
+
+        if (!set->left)
+            set->left = element;
+        else
+            tail->right = element;
+
+        tail = element;
+
+        if (current()->type == TOKEN_COMMA)
+        {
+            advance();
+            continue;
+        }
+
+        if (current()->type == TOKEN_RBRACE)
+        {
+            advance();
+            break;
+        }
+
+        fprintf(stderr, "LOIS: expected ',' or '}' in set\\n");
+        break;
+    }
+
+    return set;
+}
+
 static Expr *parse_primary(void)
 {
     Token *token =
         current();
+
+    /*
+     * Set literal.
+     */
+    if (token->type == TOKEN_LBRACE)
+        return parse_set_literal();
 
     /*
      * Unary Boolean NOT.
@@ -375,6 +450,63 @@ static Expr *parse_primary(void)
             free(name);
 
             return expr;
+        }
+
+        /*
+         * Set indexing:
+         *
+         *     numbers1
+         *     numbers2
+         *     numbers3
+         *
+         * A trailing positive integer is interpreted as
+         * a 1-based set index.
+         */
+        {
+            const char *word = token->text;
+            size_t length = strlen(word);
+            size_t split = length;
+
+            while (split > 0 &&
+                   word[split - 1] >= '0' &&
+                   word[split - 1] <= '9')
+            {
+                split--;
+            }
+
+            if (split > 0 &&
+                split < length &&
+                word[split] != '0')
+            {
+                int index = atoi(word + split);
+
+                if (index > 0)
+                {
+                    Expr *target =
+                        new_expr(EXPR_VARIABLE);
+
+                    target->text =
+                        malloc(split + 1);
+
+                    memcpy(
+                        target->text,
+                        word,
+                        split
+                    );
+
+                    target->text[split] = '\0';
+
+                    advance();
+
+                    Expr *expr =
+                        new_expr(EXPR_INDEX);
+
+                    expr->index_target = target;
+                    expr->index = index;
+
+                    return expr;
+                }
+            }
         }
 
         Expr *expr =

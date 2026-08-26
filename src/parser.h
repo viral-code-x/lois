@@ -9,6 +9,8 @@ typedef enum
     EXPR_NUMBER,
     EXPR_BOOLEAN,
     EXPR_VARIABLE,
+    EXPR_SET,
+    EXPR_INDEX,
     EXPR_BINARY,
     EXPR_UNARY,
     EXPR_CALL
@@ -30,6 +32,10 @@ struct Expr
 
     char *call_name;
     Expr *call_argument;
+
+    /* Set indexing: numbers1, numbers2, ... */
+    Expr *index_target;
+    int index;
 };
 
 typedef enum

@@ -1,0 +1,9 @@
+numbers is {1,2,3,4,5}
+output is numbers
+output is numbers1
+output is numbers2
+output is numbers5
+
+words is {"hello","lois","world"}
+output is words
+output is words2

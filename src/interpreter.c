@@ -222,6 +222,24 @@ static void print_value(Value *value)
                 : "False"
         );
     }
+    else if (value->type == VALUE_SET)
+    {
+        printf("{");
+
+        for (int i = 0;
+             i < value->set.count;
+             i++)
+        {
+            if (i > 0)
+                printf(",");
+
+            print_value(
+                &value->set.items[i]
+            );
+        }
+
+        printf("}");
+    }
 }
 
 static int truthy(Value *value)
@@ -245,6 +263,89 @@ static Value evaluate(Expr *expr)
 
     if (expr->type == EXPR_LITERAL)
         return value_string(expr->text);
+
+    /*
+     * Set literal.
+     *
+     * EXPR_SET stores its elements as a linked Expr chain
+     * through left/right.
+     */
+    if (expr->type == EXPR_SET)
+    {
+        Value set = value_set();
+
+        Expr *element = expr->left;
+
+        while (element)
+        {
+            Value item =
+                evaluate(element);
+
+            if (item.type == VALUE_NONE)
+            {
+                value_free(&set);
+                return value_none();
+            }
+
+            value_set_add(&set, item);
+
+            element = element->right;
+        }
+
+        return set;
+    }
+
+    /*
+     * Set indexing is 1-based:
+     *
+     *     numbers1
+     *     numbers2
+     */
+    if (expr->type == EXPR_INDEX)
+    {
+        Value target =
+            evaluate(expr->index_target);
+
+        if (target.type != VALUE_SET)
+        {
+            fprintf(
+                stderr,
+                "LOIS: '%s' is not a set\\n",
+                expr->index_target &&
+                expr->index_target->text
+                    ? expr->index_target->text
+                    : "value"
+            );
+
+            value_free(&target);
+            return value_none();
+        }
+
+        Value *item =
+            value_set_get(
+                &target,
+                expr->index
+            );
+
+        if (!item)
+        {
+            fprintf(
+                stderr,
+                "LOIS: set index %d out of range\\n",
+                expr->index
+            );
+
+            value_free(&target);
+            return value_none();
+        }
+
+        Value result =
+            value_copy(item);
+
+        value_free(&target);
+
+        return result;
+    }
 
     if (expr->type == EXPR_NUMBER)
         return value_number(expr->number);
