@@ -291,6 +291,17 @@ static Value evaluate(Expr *expr)
 
         if (strcasecmp(expr->call_name, "root") == 0)
         {
+            if (x < 0)
+            {
+                fprintf(
+                    stderr,
+                    "LOIS: root requires a non-negative number\\n"
+                );
+
+                value_free(&argument);
+                return value_none();
+            }
+
             result = sqrt(x);
         }
         else if (strcasecmp(expr->call_name, "root3") == 0)
@@ -299,6 +310,17 @@ static Value evaluate(Expr *expr)
         }
         else if (strcasecmp(expr->call_name, "root4") == 0)
         {
+            if (x < 0)
+            {
+                fprintf(
+                    stderr,
+                    "LOIS: root4 requires a non-negative number\\n"
+                );
+
+                value_free(&argument);
+                return value_none();
+            }
+
             result = pow(x, 1.0 / 4.0);
         }
         else if (strcasecmp(expr->call_name, "sin") == 0)
@@ -311,14 +333,47 @@ static Value evaluate(Expr *expr)
         }
         else if (strcasecmp(expr->call_name, "tan") == 0)
         {
+            if (fabs(cos(x)) < 1e-12)
+            {
+                fprintf(
+                    stderr,
+                    "LOIS: tan is undefined at this value\\n"
+                );
+
+                value_free(&argument);
+                return value_none();
+            }
+
             result = tan(x);
         }
         else if (strcasecmp(expr->call_name, "log") == 0)
         {
+            if (x <= 0)
+            {
+                fprintf(
+                    stderr,
+                    "LOIS: log requires a positive number\\n"
+                );
+
+                value_free(&argument);
+                return value_none();
+            }
+
             result = log10(x);
         }
         else if (strcasecmp(expr->call_name, "ln") == 0)
         {
+            if (x <= 0)
+            {
+                fprintf(
+                    stderr,
+                    "LOIS: ln requires a positive number\\n"
+                );
+
+                value_free(&argument);
+                return value_none();
+            }
+
             result = log(x);
         }
         else
