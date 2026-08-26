@@ -15,13 +15,29 @@ output is root4(16)
 output is sin(0)
 output is cos(0)
 output is tan(0)
+
 output is log(100)
 output is ln(1)
 
-output is root(25) + 10
-output is root(16) * 5
+output is root(25) + 2 * 3
+output is 2 * root(25) + 1
+output is (root(25) + 1) * 2
 output is 2 ^ root(16)
-output is root(25 + 11)
-output is root(9) + root3(27)
+output is root(2 ^ 6)
 
-output is root(sin(0))
+output is root(25) > 4
+output is root(25) == 5
+output is root(25) != 4
+output is root(25) > 4 and root(16) == 4
+output is root(25) > 6 or root(16) == 4
+
+x is 25
+y is 16
+
+output is root(x)
+output is root(x) + root(y)
+output is root(x + y)
+
+output is root(root(256))
+output is root3(root3(729))
+output is root3(-27)
