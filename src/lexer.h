@@ -32,7 +32,8 @@ typedef enum
     TOKEN_OR,
 
     TOKEN_LPAREN,
-    TOKEN_RPAREN
+    TOKEN_RPAREN,
+    TOKEN_ABS
 } TokenType;
 
 typedef struct

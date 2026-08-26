@@ -376,6 +376,22 @@ static Value evaluate(Expr *expr)
 
             result = log(x);
         }
+        else if (strcasecmp(expr->call_name, "abs") == 0)
+        {
+            result = fabs(x);
+        }
+        else if (strcasecmp(expr->call_name, "round") == 0)
+        {
+            result = round(x);
+        }
+        else if (strcasecmp(expr->call_name, "floor") == 0)
+        {
+            result = floor(x);
+        }
+        else if (strcasecmp(expr->call_name, "ceil") == 0)
+        {
+            result = ceil(x);
+        }
         else
         {
             fprintf(

@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 #include <strings.h>
 
 static TokenList *tokens;
@@ -253,6 +254,23 @@ static Expr *parse_primary(void)
                 new_expr(EXPR_BOOLEAN);
 
             expr->number = 0;
+
+            advance();
+
+            return expr;
+        }
+
+        /*
+         * Mathematical constant.
+         *
+         * pi is a numeric constant, not a variable.
+         */
+        if (word_exact("pi"))
+        {
+            Expr *expr =
+                new_expr(EXPR_NUMBER);
+
+            expr->number = acos(-1.0);
 
             advance();
 

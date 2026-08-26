@@ -380,6 +380,10 @@ TokenList lexer_tokenize(const char *source)
                 type = TOKEN_RPAREN;
                 break;
 
+            case '|':
+                type = TOKEN_ABS;
+                break;
+
             case '=':
                 if (p[1] == '=')
                 {
