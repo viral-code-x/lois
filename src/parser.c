@@ -661,42 +661,44 @@ static Expr *parse_expression(int minimum_precedence)
 
 static Expr *parse_output(void)
 {
-    Expr *left = NULL;
-
     /*
-     * Numbers, parentheses and unary minus are expressions.
+     * Output supports normal expressions.
+     *
+     * Examples:
+     *     output is age
+     *     output is "Age: " + age
+     *     output is x + 5
+     *     output is root(25)
+     *
+     * A multi-word unquoted output such as:
+     *     output is hello world
+     *
+     * remains literal text.
      */
+
     if (
+        current()->type == TOKEN_STRING ||
         current()->type == TOKEN_NUMBER ||
         current()->type == TOKEN_LPAREN ||
         current()->type == TOKEN_MINUS
     )
     {
+        /*
+         * If this starts an expression, parse the expression.
+         * This also handles:
+         *
+         *     "Age: " + age
+         *     10 + 20
+         *     (x + 1) * 2
+         */
         return parse_expression(0);
     }
 
-    /*
-     * A word followed by "(" is a function call.
-     *
-     *     output is root(25)
-     */
-    if (
-        current()->type == TOKEN_WORD &&
-        peek(1)->type == TOKEN_LPAREN
-    )
-    {
-        return parse_expression(0);
-    }
-
-    /*
-     * A word followed by an operator is an expression.
-     *
-     *     output is x + 5
-     *     output is x * 2
-     *     output is x ^ 2
-     */
     if (current()->type == TOKEN_WORD)
     {
+        /*
+         * A word followed by an operator is an expression.
+         */
         if (
             peek(1)->type == TOKEN_PLUS ||
             peek(1)->type == TOKEN_MINUS ||
@@ -709,22 +711,22 @@ static Expr *parse_output(void)
             peek(1)->type == TOKEN_GREATER_EQUAL ||
             peek(1)->type == TOKEN_LESS_EQUAL ||
             peek(1)->type == TOKEN_EQUAL_EQUAL ||
-            peek(1)->type == TOKEN_NOT_EQUAL
+            peek(1)->type == TOKEN_NOT_EQUAL ||
+            peek(1)->type == TOKEN_AND ||
+            peek(1)->type == TOKEN_OR
         )
         {
             return parse_expression(0);
         }
 
         /*
-         * A single word on the output line is a variable
-         * expression.
-         *
-         *     x is 10
-         *     output is x
-         *
-         * Multi-word output remains literal:
-         *
-         *     output is hello world
+         * A word followed by "(" is a function call.
+         */
+        if (peek(1)->type == TOKEN_LPAREN)
+            return parse_expression(0);
+
+        /*
+         * A single word is a variable.
          */
         if (
             peek(1)->type == TOKEN_NEWLINE ||
@@ -736,77 +738,55 @@ static Expr *parse_output(void)
     }
 
     /*
-     * Natural literal output.
+     * Otherwise collect ordinary words as literal output.
      *
      *     output is hello world
-     *
-     * remains literal text.
      */
+    Expr *left = NULL;
+
     while (
         current()->type == TOKEN_WORD ||
         current()->type == TOKEN_STRING ||
         current()->type == TOKEN_NUMBER
     )
     {
-        /*
-         * Quoted strings and numbers are always valid output.
-         */
+        Expr *right = NULL;
+
         if (
             current()->type == TOKEN_STRING ||
             current()->type == TOKEN_NUMBER
         )
         {
-            Expr *right = parse_primary();
-
-            if (!right)
-                break;
-
-            if (!left)
-            {
-                left = right;
-            }
-            else
-            {
-                left =
-                    make_binary(
-                        left,
-                        right,
-                        TOKEN_PLUS
-                    );
-            }
-
-            continue;
+            right = parse_primary();
         }
-
-        /*
-         * Reserved LOIS words are never allowed as
-         * unquoted output text.
-         */
-        if (is_reserved_word(current()->text))
+        else
         {
-            char message[256];
+            if (is_reserved_word(current()->text))
+            {
+                char message[256];
 
-            snprintf(
-                message,
-                sizeof(message),
-                "\"%s\" is a reserved LOIS word; use quotes for literal output",
-                current()->text
-            );
+                snprintf(
+                    message,
+                    sizeof(message),
+                    "\"%s\" is a reserved LOIS word; use quotes for literal output",
+                    current()->text
+                );
 
-            parser_error(message);
+                parser_error(message);
+                advance();
+                continue;
+            }
+
+            right = new_expr(EXPR_LITERAL);
+
+            right->text =
+                strdup(current()->text);
 
             advance();
-
-            continue;
         }
 
-        Expr *right =
-            new_expr(EXPR_LITERAL);
-
-        right->text =
-            strdup(current()->text);
-
-        advance();
+        if (!right)
+            break;
 
         if (!left)
         {
@@ -844,9 +824,18 @@ static Statement *new_statement(StatementType type)
 
 static Statement *parse_output_statement(void)
 {
-    advance();
+    advance(); /* output */
 
+    /*
+     * output is ...
+     * output = ...
+     *
+     * Both forms produce output. The distinction between
+     * is and = is handled by the construct that needs it.
+     */
     if (word_is("is"))
+        advance();
+    else if (current()->type == TOKEN_ASSIGN)
         advance();
 
     Statement *statement =
@@ -860,20 +849,84 @@ static Statement *parse_output_statement(void)
 
 static Statement *parse_input_statement(void)
 {
-    advance();
-
-    if (word_is("is"))
-        advance();
+    advance(); /* input */
 
     Statement *statement =
         new_statement(STMT_INPUT);
 
-    if (current()->type == TOKEN_WORD)
+    /*
+     * input is age
+     * input = age
+     *
+     * is  -> string input
+     * =   -> numeric input
+     */
+    if (word_is("is"))
     {
+        advance();
+
+        if (current()->type != TOKEN_WORD)
+        {
+            parser_error("LOIS: expected variable name after 'input is'");
+            return statement;
+        }
+
         statement->name =
             strdup(current()->text);
 
+        statement->extra =
+            strdup("string");
+
         advance();
+    }
+    else if (current()->type == TOKEN_ASSIGN)
+    {
+        advance();
+
+        if (current()->type != TOKEN_WORD)
+        {
+            parser_error("LOIS: expected variable name after 'input ='");
+            return statement;
+        }
+
+        statement->name =
+            strdup(current()->text);
+
+        statement->extra =
+            strdup("num");
+
+        advance();
+    }
+    else
+    {
+        parser_error(
+            "LOIS: expected 'is' or '=' after 'input'"
+        );
+        return statement;
+    }
+
+    /*
+     * Optional input prompt:
+     *
+     * input is name for "Enter your name"
+     *
+     * The expression after 'for' is stored as the
+     * input message.
+     */
+    if (word_is("for"))
+    {
+        advance();
+
+        if (current()->type != TOKEN_STRING)
+        {
+            parser_error(
+                "LOIS: expected quoted input message after 'for'"
+            );
+            return statement;
+        }
+
+        statement->expression =
+            parse_primary();
     }
 
     return statement;
@@ -1207,18 +1260,31 @@ static Statement *parse_function_call_statement(void)
      * function is greet
      * function is square 5
      * function is add 2 3
+     *
+     * Numeric form:
+     *
+     * function = add 2 3
      */
 
     if (
         !word_is("function") ||
-        !peek_word_is(1, "is")
+        !(
+            peek_word_is(1, "is") ||
+            (
+                peek(1)->type == TOKEN_ASSIGN
+            )
+        )
     )
     {
         return NULL;
     }
 
     advance(); /* function */
-    advance(); /* is */
+
+    if (word_is("is"))
+        advance(); /* is */
+    else if (current()->type == TOKEN_ASSIGN)
+        advance(); /* = */
 
     if (current()->type != TOKEN_WORD)
     {
@@ -1956,7 +2022,10 @@ static Statement *parse_statement(void)
 
     if (
         word_is("function") &&
-        peek_word_is(1, "is")
+        (
+            peek_word_is(1, "is") ||
+            peek(1)->type == TOKEN_ASSIGN
+        )
     )
         return parse_function_call_statement();
 

@@ -1658,10 +1658,22 @@ static void execute_statement(Statement *statement)
             {
                 char buffer[1024];
 
-                printf(
-                    "%s: ",
-                    statement->name
-                );
+                /*
+                 * Only show a prompt when one was explicitly
+                 * supplied with:
+                 *
+                 * input is name for "Enter your name"
+                 */
+                if (statement->expression)
+                {
+                    Value prompt =
+                        evaluate(statement->expression);
+
+                    if (prompt.type == VALUE_STRING)
+                        printf("%s", prompt.string);
+
+                    value_free(&prompt);
+                }
 
                 fflush(stdout);
 
@@ -1680,14 +1692,12 @@ static void execute_statement(Statement *statement)
                         )
                     ] = '\0';
 
-                    Variable *variable =
-                        find_variable(
-                            statement->name
-                        );
-
                     if (
-                        variable &&
-                        variable->is_num
+                        statement->extra &&
+                        strcmp(
+                            statement->extra,
+                            "num"
+                        ) == 0
                     )
                     {
                         char *end;
