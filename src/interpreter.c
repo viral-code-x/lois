@@ -64,7 +64,7 @@ static Function *find_function(const char *name)
     for (int i = 0; i < function_count; i++)
     {
         if (
-            strcasecmp(
+            strcmp(
                 functions[i].name,
                 name
             ) == 0
@@ -155,7 +155,7 @@ static Variable *find_variable(const char *name)
     for (int i = 0; i < variable_count; i++)
     {
         if (
-            strcasecmp(
+            strcmp(
                 variables[i].name,
                 name
             ) == 0
@@ -589,9 +589,8 @@ static Value evaluate(Expr *expr)
         /*
          * Logical operators.
          *
-         * Always return numeric boolean values:
-         * 1 = true
-         * 0 = false
+         * Always return real boolean values:
+         * True / False
          */
         if (
             expr->operator == TOKEN_AND ||
@@ -980,23 +979,6 @@ static Value evaluate(Expr *expr)
 
                     break;
 
-                /*
-                 * Logical AND / OR.
-                 */
-                case TOKEN_AND:
-                    result =
-                        (l != 0) &&
-                        (r != 0);
-
-                    break;
-
-                case TOKEN_OR:
-                    result =
-                        (l != 0) ||
-                        (r != 0);
-
-                    break;
-
                 default:
                     value_free(&left);
                     value_free(&right);
@@ -1104,7 +1086,7 @@ static Value evaluate(Expr *expr)
             value_free(&left);
             value_free(&right);
 
-            return value_number(result);
+            return value_bool(result != 0);
         }
 
         value_free(&left);

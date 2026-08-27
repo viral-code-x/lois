@@ -1,13 +1,13 @@
-name is Alex.
-age is 19.
+name is Alex
+age is 19
 
-output is hello name.
-output is hello     name.
-output is "hello name".
-output is age + 1.
+output is hello name
+output is hello     name
+output is "hello name"
+output is age + 1
 
-if age is >18
-then output is "you are an adult".
+if age > 18
+then output is "you are an adult"
 
-input number.
-output is you entered number.
+input is number
+output is you entered number
