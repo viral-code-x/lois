@@ -68,7 +68,18 @@ int main(int argc, char **argv)
     Statement *program =
         parser_parse(&tokens);
 
+    if (parser_had_error())
+    {
+        parser_free(program);
+        lexer_free(&tokens);
+        free(source);
+        return 1;
+    }
+
     interpreter_run(program);
+
+    int had_error =
+        interpreter_had_error();
 
     parser_free(program);
 
@@ -76,5 +87,5 @@ int main(int argc, char **argv)
 
     free(source);
 
-    return 0;
+    return had_error ? 1 : 0;
 }

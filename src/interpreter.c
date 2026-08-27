@@ -5,6 +5,30 @@
 
 #include <math.h>
 #include <stdio.h>
+
+static int runtime_error = 0;
+
+int interpreter_had_error(void)
+{
+    return runtime_error;
+}
+
+static void set_runtime_error(Expr *expr, const char *message)
+{
+    if (runtime_error)
+        return;
+
+    runtime_error = 1;
+
+    fprintf(
+        stderr,
+        "Error in line %d:\n%s\n",
+        expr ? expr->line : 0,
+        message
+    );
+}
+
+
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
@@ -310,7 +334,7 @@ static Value evaluate(Expr *expr)
         {
             fprintf(
                 stderr,
-                "LOIS: '%s' is not a set\\n",
+                "LOIS: '%s' is not a set\n",
                 expr->index_target &&
                 expr->index_target->text
                     ? expr->index_target->text
@@ -331,7 +355,7 @@ static Value evaluate(Expr *expr)
         {
             fprintf(
                 stderr,
-                "LOIS: set index %d out of range\\n",
+                "LOIS: set index %d out of range\n",
                 expr->index
             );
 
@@ -360,7 +384,18 @@ static Value evaluate(Expr *expr)
 
         if (!variable)
         {
-            return value_string(expr->text);
+            char message[256];
+
+            snprintf(
+                message,
+                sizeof(message),
+                "%s is not defined",
+                expr->text
+            );
+
+            set_runtime_error(expr, message);
+
+            return value_none();
         }
 
         return value_copy(
@@ -394,9 +429,9 @@ static Value evaluate(Expr *expr)
         {
             if (x < 0)
             {
-                fprintf(
-                    stderr,
-                    "LOIS: root requires a non-negative number\\n"
+                set_runtime_error(
+                    expr,
+                    "root requires a non-negative number"
                 );
 
                 value_free(&argument);
@@ -413,9 +448,9 @@ static Value evaluate(Expr *expr)
         {
             if (x < 0)
             {
-                fprintf(
-                    stderr,
-                    "LOIS: root4 requires a non-negative number\\n"
+                set_runtime_error(
+                    expr,
+                    "root4 requires a non-negative number"
                 );
 
                 value_free(&argument);
@@ -436,9 +471,9 @@ static Value evaluate(Expr *expr)
         {
             if (fabs(cos(x)) < 1e-12)
             {
-                fprintf(
-                    stderr,
-                    "LOIS: tan is undefined at this value\\n"
+                set_runtime_error(
+                    expr,
+                    "tan is undefined at this value"
                 );
 
                 value_free(&argument);
@@ -451,9 +486,9 @@ static Value evaluate(Expr *expr)
         {
             if (x <= 0)
             {
-                fprintf(
-                    stderr,
-                    "LOIS: log requires a positive number\\n"
+                set_runtime_error(
+                    expr,
+                    "log requires a positive number"
                 );
 
                 value_free(&argument);
@@ -466,9 +501,9 @@ static Value evaluate(Expr *expr)
         {
             if (x <= 0)
             {
-                fprintf(
-                    stderr,
-                    "LOIS: ln requires a positive number\\n"
+                set_runtime_error(
+                    expr,
+                    "ln requires a positive number"
                 );
 
                 value_free(&argument);
@@ -608,8 +643,14 @@ static Value evaluate(Expr *expr)
         Value left =
             evaluate(expr->left);
 
+        if (left.type == VALUE_NONE)
+            return value_none();
+
         Value right =
             evaluate(expr->right);
+
+        if (right.type == VALUE_NONE)
+            return value_none();
 
         /*
          * String concatenation.
@@ -854,27 +895,89 @@ static Value evaluate(Expr *expr)
                  * Comparisons.
                  */
                 case TOKEN_GREATER:
-                    result = l > r;
-                    break;
-
                 case TOKEN_LESS:
-                    result = l < r;
-                    break;
-
                 case TOKEN_GREATER_EQUAL:
-                    result = l >= r;
-                    break;
-
                 case TOKEN_LESS_EQUAL:
-                    result = l <= r;
+                    if (
+                        left.type != VALUE_NUMBER ||
+                        right.type != VALUE_NUMBER
+                    )
+                    {
+                        const char *op = "<";
+
+                        if (expr->operator == TOKEN_GREATER)
+                            op = ">";
+                        else if (expr->operator == TOKEN_GREATER_EQUAL)
+                            op = ">=";
+                        else if (expr->operator == TOKEN_LESS_EQUAL)
+                            op = "<=";
+
+                        char message[128];
+
+                        snprintf(
+                            message,
+                            sizeof(message),
+                            "a number is expected after the \"%s\"",
+                            op
+                        );
+
+                        set_runtime_error(expr, message);
+
+                        value_free(&left);
+                        value_free(&right);
+
+                        return value_none();
+                    }
+
+                    if (expr->operator == TOKEN_GREATER)
+                        result = l > r;
+                    else if (expr->operator == TOKEN_LESS)
+                        result = l < r;
+                    else if (expr->operator == TOKEN_GREATER_EQUAL)
+                        result = l >= r;
+                    else
+                        result = l <= r;
+
                     break;
 
                 case TOKEN_EQUAL_EQUAL:
-                    result = l == r;
-                    break;
-
                 case TOKEN_NOT_EQUAL:
-                    result = l != r;
+                    if (
+                        left.type != right.type
+                    )
+                    {
+                        value_free(&left);
+                        value_free(&right);
+
+                        set_runtime_error(
+                            expr,
+                            "values must have the same type"
+                        );
+
+                        return value_none();
+                    }
+
+                    if (
+                        left.type != VALUE_NUMBER &&
+                        left.type != VALUE_BOOL
+                    )
+                    {
+                        value_free(&left);
+                        value_free(&right);
+
+                        set_runtime_error(
+                            expr,
+                            "a number or boolean is expected"
+                        );
+
+                        return value_none();
+                    }
+
+                    result =
+                        expr->operator == TOKEN_EQUAL_EQUAL
+                            ? l == r
+                            : l != r;
+
                     break;
 
                 /*
@@ -1644,6 +1747,7 @@ static void execute_statement(Statement *statement)
 
 void interpreter_run(Statement *program)
 {
+    runtime_error = 0;
     variable_count = 0;
 
     execute_statement(program);

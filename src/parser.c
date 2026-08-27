@@ -5,8 +5,32 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdarg.h>
 #include <math.h>
-#include <strings.h>
+
+static Token *current(void);
+
+static int parser_error_count = 0;
+
+int parser_had_error(void)
+{
+    return parser_error_count > 0;
+}
+
+static void parser_error(const char *format, ...)
+{
+    va_list args;
+
+    parser_error_count++;
+
+    fprintf(stderr, "in line number %d\n", current()->line);
+
+    va_start(args, format);
+    vfprintf(stderr, format, args);
+    va_end(args);
+
+    fprintf(stderr, "\n");
+}
 
 static TokenList *tokens;
 static int position;
@@ -42,6 +66,44 @@ static int word_is(const char *word)
         strcasecmp(current()->text, word) == 0;
 }
 
+
+static int is_reserved_word(const char *word)
+{
+    static const char *reserved[] =
+    {
+        "is",
+        "num",
+        "function",
+        "if",
+        "then",
+        "else",
+        "but",
+        "while",
+        "for",
+        "repeat",
+        "return",
+        "output",
+        "input",
+        "and",
+        "or",
+        "not",
+        "True",
+        "False"
+    };
+
+    for (
+        size_t i = 0;
+        i < sizeof(reserved) / sizeof(reserved[0]);
+        i++
+    )
+    {
+        if (strcasecmp(word, reserved[i]) == 0)
+            return 1;
+    }
+
+    return 0;
+}
+
 static int peek_word_is(int offset, const char *word)
 {
     return
@@ -67,6 +129,7 @@ static Expr *new_expr(ExprType type)
     }
 
     expr->type = type;
+    expr->line = current()->line;
 
     return expr;
 }
@@ -83,6 +146,9 @@ static Expr *make_binary(
     expr->left = left;
     expr->right = right;
     expr->operator = operator;
+
+    if (left)
+        expr->line = left->line;
 
     return expr;
 }
@@ -203,7 +269,7 @@ static Expr *parse_set_literal(void)
 
         if (!element)
         {
-            fprintf(stderr, "LOIS: invalid set element\\n");
+            fprintf(stderr, "LOIS: invalid set element\n");
             return set;
         }
 
@@ -226,7 +292,7 @@ static Expr *parse_set_literal(void)
             break;
         }
 
-        fprintf(stderr, "LOIS: expected ',' or '}' in set\\n");
+        fprintf(stderr, "LOIS: expected ',' or '}' in set\n");
         break;
     }
 
@@ -382,7 +448,7 @@ static Expr *parse_primary(void)
             {
                 fprintf(
                     stderr,
-                    "LOIS: expected ')' after function argument\\n"
+                    "LOIS: expected ')' after function argument\n"
                 );
 
                 free(name);
@@ -400,56 +466,6 @@ static Expr *parse_primary(void)
             free(name);
 
             return call;
-        }
-
-        /*
-         * Function call:
-         *
-         *     root(25)
-         *     sin(0)
-         *     cos(0)
-         *
-         * Function names remain ordinary TOKEN_WORDs.
-         */
-        if (peek(1)->type == TOKEN_LPAREN)
-        {
-            char *name =
-                strdup(token->text);
-
-            advance(); /* function name */
-            advance(); /* '(' */
-
-            Expr *argument =
-                parse_expression(0);
-
-            if (!argument)
-            {
-                free(name);
-                return NULL;
-            }
-
-            if (current()->type != TOKEN_RPAREN)
-            {
-                fprintf(
-                    stderr,
-                    "LOIS: expected ')' after function argument\n"
-                );
-
-                free(name);
-                return NULL;
-            }
-
-            advance(); /* ')' */
-
-            Expr *expr =
-                make_call(
-                    name,
-                    argument
-                );
-
-            free(name);
-
-            return expr;
         }
 
         /*
@@ -645,15 +661,86 @@ static Expr *parse_expression(int minimum_precedence)
 
 static Expr *parse_output(void)
 {
-    Expr *left =
-        parse_expression(0);
-
-    if (!left)
-        return NULL;
+    Expr *left = NULL;
 
     /*
-     * Adjacent words/numbers/strings become
-     * output concatenation.
+     * Numbers, parentheses and unary minus are expressions.
+     */
+    if (
+        current()->type == TOKEN_NUMBER ||
+        current()->type == TOKEN_LPAREN ||
+        current()->type == TOKEN_MINUS
+    )
+    {
+        return parse_expression(0);
+    }
+
+    /*
+     * A word followed by "(" is a function call.
+     *
+     *     output is root(25)
+     */
+    if (
+        current()->type == TOKEN_WORD &&
+        peek(1)->type == TOKEN_LPAREN
+    )
+    {
+        return parse_expression(0);
+    }
+
+    /*
+     * A word followed by an operator is an expression.
+     *
+     *     output is x + 5
+     *     output is x * 2
+     *     output is x ^ 2
+     */
+    if (current()->type == TOKEN_WORD)
+    {
+        if (
+            peek(1)->type == TOKEN_PLUS ||
+            peek(1)->type == TOKEN_MINUS ||
+            peek(1)->type == TOKEN_STAR ||
+            peek(1)->type == TOKEN_SLASH ||
+            peek(1)->type == TOKEN_PERCENT ||
+            peek(1)->type == TOKEN_CARET ||
+            peek(1)->type == TOKEN_GREATER ||
+            peek(1)->type == TOKEN_LESS ||
+            peek(1)->type == TOKEN_GREATER_EQUAL ||
+            peek(1)->type == TOKEN_LESS_EQUAL ||
+            peek(1)->type == TOKEN_EQUAL_EQUAL ||
+            peek(1)->type == TOKEN_NOT_EQUAL
+        )
+        {
+            return parse_expression(0);
+        }
+
+        /*
+         * A single word on the output line is a variable
+         * expression.
+         *
+         *     x is 10
+         *     output is x
+         *
+         * Multi-word output remains literal:
+         *
+         *     output is hello world
+         */
+        if (
+            peek(1)->type == TOKEN_NEWLINE ||
+            peek(1)->type == TOKEN_EOF
+        )
+        {
+            return parse_expression(0);
+        }
+    }
+
+    /*
+     * Natural literal output.
+     *
+     *     output is hello world
+     *
+     * remains literal text.
      */
     while (
         current()->type == TOKEN_WORD ||
@@ -662,29 +749,78 @@ static Expr *parse_output(void)
     )
     {
         /*
-         * Don't consume the beginning of another
-         * statement.
+         * Quoted strings and numbers are always valid output.
          */
-        if (word_is("then") ||
-            word_is("else") ||
-            word_is("but") ||
-            word_is("if"))
+        if (
+            current()->type == TOKEN_STRING ||
+            current()->type == TOKEN_NUMBER
+        )
         {
-            break;
+            Expr *right = parse_primary();
+
+            if (!right)
+                break;
+
+            if (!left)
+            {
+                left = right;
+            }
+            else
+            {
+                left =
+                    make_binary(
+                        left,
+                        right,
+                        TOKEN_PLUS
+                    );
+            }
+
+            continue;
+        }
+
+        /*
+         * Reserved LOIS words are never allowed as
+         * unquoted output text.
+         */
+        if (is_reserved_word(current()->text))
+        {
+            char message[256];
+
+            snprintf(
+                message,
+                sizeof(message),
+                "\"%s\" is a reserved LOIS word; use quotes for literal output",
+                current()->text
+            );
+
+            parser_error(message);
+
+            advance();
+
+            continue;
         }
 
         Expr *right =
-            parse_primary();
+            new_expr(EXPR_LITERAL);
 
-        if (!right)
-            break;
+        right->text =
+            strdup(current()->text);
 
-        left =
-            make_binary(
-                left,
-                right,
-                TOKEN_PLUS
-            );
+        advance();
+
+        if (!left)
+        {
+            left = right;
+        }
+        else
+        {
+            left =
+                make_binary(
+                    left,
+                    right,
+                    TOKEN_PLUS
+                );
+        }
     }
 
     return left;
@@ -1854,23 +1990,47 @@ static Statement *parse_statement(void)
     return NULL;
 }
 
+static void recover_to_next_line(void)
+{
+    while (
+        current()->type != TOKEN_NEWLINE &&
+        current()->type != TOKEN_EOF
+    )
+    {
+        advance();
+    }
+
+    if (current()->type == TOKEN_NEWLINE)
+        advance();
+}
+
 Statement *parser_parse(TokenList *token_list)
 {
+    parser_error_count = 0;
+
     tokens = token_list;
     position = 0;
 
     Statement *head = NULL;
     Statement *tail = NULL;
 
-    while (
-        current()->type != TOKEN_EOF
-    )
+    while (current()->type != TOKEN_EOF)
     {
+        int start_position = position;
+
         Statement *statement =
             parse_statement();
 
         if (!statement)
+        {
+            if (current()->type != TOKEN_EOF)
+            {
+                if (position == start_position)
+                    recover_to_next_line();
+            }
+
             continue;
+        }
 
         if (!head)
         {

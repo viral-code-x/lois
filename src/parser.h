@@ -22,6 +22,8 @@ struct Expr
 {
     ExprType type;
 
+    int line;
+
     char *text;
     double number;
 
@@ -81,6 +83,7 @@ struct Statement
 };
 
 Statement *parser_parse(TokenList *tokens);
+int parser_had_error(void);
 
 void parser_free(Statement *statement);
 
