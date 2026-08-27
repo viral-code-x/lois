@@ -2,7 +2,9 @@ name is "Jamil sir"
 
 output is name
 output is "enter your age:"
-input is age
+
+age is num
+then input is age
 
 output is 10 + 5
 output is 20 - 8

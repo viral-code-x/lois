@@ -4,5 +4,6 @@
 #include "parser.h"
 
 void interpreter_run(Statement *program);
+int interpreter_had_error(void);
 
 #endif
