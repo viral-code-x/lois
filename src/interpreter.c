@@ -288,12 +288,6 @@ static Value evaluate(Expr *expr)
     if (expr->type == EXPR_LITERAL)
         return value_string(expr->text);
 
-    /*
-     * Set literal.
-     *
-     * EXPR_SET stores its elements as a linked Expr chain
-     * through left/right.
-     */
     if (expr->type == EXPR_SET)
     {
         Value set = value_set();
@@ -319,12 +313,6 @@ static Value evaluate(Expr *expr)
         return set;
     }
 
-    /*
-     * Set indexing is 1-based:
-     *
-     *     numbers1
-     *     numbers2
-     */
     if (expr->type == EXPR_INDEX)
     {
         Value target =
@@ -566,9 +554,6 @@ static Value evaluate(Expr *expr)
             return value_number(result);
         }
 
-        /*
-         * Unary Boolean NOT.
-         */
         if (expr->operator == TOKEN_NOT)
         {
             int result =
@@ -586,13 +571,6 @@ static Value evaluate(Expr *expr)
 
     if (expr->type == EXPR_BINARY)
     {
-        /*
-         * Logical operators.
-         *
-         * Always return numeric boolean values:
-         * 1 = true
-         * 0 = false
-         */
         if (
             expr->operator == TOKEN_AND ||
             expr->operator == TOKEN_OR
@@ -601,9 +579,6 @@ static Value evaluate(Expr *expr)
             Value left =
                 evaluate(expr->left);
 
-            /*
-             * Short-circuit AND/OR.
-             */
             int left_true =
                 truthy(&left);
 
@@ -652,11 +627,6 @@ static Value evaluate(Expr *expr)
         if (right.type == VALUE_NONE)
             return value_none();
 
-        /*
-         * String concatenation.
-         *
-         * Adjacent output pieces use + internally.
-         */
         if (
             expr->operator == TOKEN_PLUS &&
             (
@@ -722,17 +692,6 @@ static Value evaluate(Expr *expr)
             return value_string(result);
         }
 
-        /*
-         * Numeric / boolean operations.
-         *
-         * Booleans behave numerically internally:
-         *
-         * True  = 1
-         * False = 0
-         *
-         * But comparison results are returned as
-         * actual VALUE_BOOL values.
-         */
         if (
             (
                 left.type == VALUE_NUMBER ||
@@ -754,9 +713,6 @@ static Value evaluate(Expr *expr)
 
             switch (expr->operator)
             {
-                /*
-                 * Arithmetic is only valid for numbers.
-                 */
                 case TOKEN_PLUS:
                     if (
                         left.type != VALUE_NUMBER ||
@@ -891,9 +847,6 @@ static Value evaluate(Expr *expr)
 
                     return value_number(result);
 
-                /*
-                 * Comparisons.
-                 */
                 case TOKEN_GREATER:
                 case TOKEN_LESS:
                 case TOKEN_GREATER_EQUAL:
@@ -980,9 +933,6 @@ static Value evaluate(Expr *expr)
 
                     break;
 
-                /*
-                 * Logical AND / OR.
-                 */
                 case TOKEN_AND:
                     result =
                         (l != 0) &&
@@ -1012,12 +962,6 @@ static Value evaluate(Expr *expr)
             );
         }
 
-        /*
-         * Boolean equality.
-         *
-         * True and False are real boolean values.
-         * They are compared as booleans, not strings.
-         */
         if (
             left.type == VALUE_BOOL &&
             right.type == VALUE_BOOL
@@ -1061,9 +1005,6 @@ static Value evaluate(Expr *expr)
             return value_bool(result);
         }
 
-        /*
-         * String equality.
-         */
         if (
             left.type == VALUE_STRING &&
             right.type == VALUE_STRING
@@ -1142,18 +1083,6 @@ static void execute_for(Statement *statement)
     )
         return;
 
-    /*
-     * A LOIS for loop starts at 1.
-     *
-     *     for x<=10
-     *
-     * means:
-     *
-     *     x = 1
-     *     while x <= 10
-     *         ...
-     *         x = x + 1
-     */
     set_variable(
         statement->loop_variable,
         value_number(1),
@@ -1178,22 +1107,10 @@ static void execute_for(Statement *statement)
         if (!true_value)
             break;
 
-        /*
-         * Execute the complete nested body.
-         *
-         * This is what allows:
-         *
-         *     for x<=10
-         *     then for y<=10
-         *     then output is x*y
-         */
         execute_statement(
             statement->body
         );
 
-        /*
-         * Increment the loop variable.
-         */
         Variable *variable =
             find_variable(
                 statement->loop_variable
@@ -1293,31 +1210,8 @@ static void execute_if(Statement *statement)
     }
 }
 
-/*
- * WHILE LOOP
- *
- * Re-evaluate the condition before every iteration.
- *
- * Example:
- *
- *     x is 1
- *
- *     while x <= 5
- *     then output is x
- *     x = x + 1
- *
- * The loop keeps executing its body while the
- * condition remains truthy.
- */
 static void execute_while(Statement *statement)
 {
-    /*
-     * Safety guard against accidental infinite loops.
-     *
-     * This is deliberately generous. It prevents a
-     * broken program from locking the interpreter
-     * forever while still allowing normal loops.
-     */
     unsigned long long iterations = 0;
 
     const unsigned long long MAX_LOOP_ITERATIONS =
@@ -1369,10 +1263,6 @@ static void execute_statement(Statement *statement)
                     statement->expression
                 );
 
-                /*
-                 * The expression belongs to the parser tree.
-                 * Do not free it here.
-                 */
                 statement->expression = NULL;
 
                 break;
@@ -1410,10 +1300,6 @@ static void execute_statement(Statement *statement)
                     break;
                 }
 
-                /*
-                 * Evaluate all arguments BEFORE replacing
-                 * the parameter variables.
-                 */
                 Value arguments[16];
 
                 for (int i = 0;
@@ -1426,10 +1312,6 @@ static void execute_statement(Statement *statement)
                         );
                 }
 
-                /*
-                 * Save existing variables with the same
-                 * names as parameters.
-                 */
                 Variable saved[16];
                 int saved_count = 0;
 
@@ -1478,9 +1360,6 @@ static void execute_statement(Statement *statement)
                         value_number(0);
                 }
 
-                /*
-                 * Remove temporary parameter variables.
-                 */
                 for (int i = 0;
                      i < function->parameter_count;
                      i++)
@@ -1513,10 +1392,6 @@ static void execute_statement(Statement *statement)
                     }
                 }
 
-                /*
-                 * Restore variables that existed before
-                 * the call.
-                 */
                 for (int i = 0;
                      i < saved_count;
                      i++)
@@ -1547,11 +1422,6 @@ static void execute_statement(Statement *statement)
 
             case STMT_RETURN:
             {
-                /*
-                 * Return is currently an expression result.
-                 *
-                 * Bare "return" means 0.
-                 */
                 Value result;
 
                 if (statement->expression)
@@ -1577,11 +1447,6 @@ static void execute_statement(Statement *statement)
 
             case STMT_ASSIGN:
             {
-                /*
-                 * x = expression
-                 *
-                 * Always numeric.
-                 */
                 if (
                     statement->extra &&
                     strcasecmp(
@@ -1620,9 +1485,6 @@ static void execute_statement(Statement *statement)
                     break;
                 }
 
-                /*
-                 * name is num
-                 */
                 if (
                     statement->extra &&
                     strcasecmp(
