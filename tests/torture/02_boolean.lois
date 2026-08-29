@@ -1,0 +1,20 @@
+a = 10
+b = 20
+
+output = a < b
+output = a > b
+output = a == b
+output = a != b
+
+output = a < b and b > a
+output = a > b and b > a
+output = a > b or b > a
+output = a < b or b < a
+
+output = not True
+output = not False
+
+output = True and False
+output = True or False
+output = False and True
+output = False or True

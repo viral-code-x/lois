@@ -1,0 +1,10 @@
+output = 2 + 3 * 4
+output = (2 + 3) * 4
+output = 2 ^ 3 ^ 2
+output = 10 / 2
+output = 10 % 3
+output = -5 + 10
+output = 2 * -3
+output = 4 ^ (1 / 2)
+output = 1000000 * 1000000
+output = 1 / 3

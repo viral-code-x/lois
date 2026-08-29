@@ -1,0 +1,6 @@
+x = 1
+
+while x < 6 then output = x
+x = x + 1
+
+repeat 3 then output is hello

@@ -1,0 +1,3 @@
+double is function x returns x * 2
+
+output is double(5)

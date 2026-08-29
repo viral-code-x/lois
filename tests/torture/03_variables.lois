@@ -1,0 +1,16 @@
+x is hello
+y is world
+
+output is x
+output is y
+output is x + y
+
+a = 10
+b = a
+c = b + 5
+d = c * 2
+
+output = a
+output = b
+output = c
+output = d

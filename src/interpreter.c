@@ -403,10 +403,228 @@ static Value evaluate(Expr *expr)
         );
     }
 
+    /*
+     * Conditional expression:
+     *
+     *     if condition then value else value
+     *
+     * Only the selected branch is evaluated.
+     */
+    if (expr->type == EXPR_CONDITIONAL)
+    {
+        Value condition =
+            evaluate(expr->condition);
+
+        if (condition.type == VALUE_NONE)
+            return value_none();
+
+        int result =
+            truthy(&condition);
+
+        value_free(&condition);
+
+        if (result)
+            return evaluate(expr->left);
+
+        return evaluate(expr->right);
+    }
+
     if (expr->type == EXPR_CALL)
     {
+        /*
+         * First check whether this is a user-defined LOIS
+         * function.
+         */
+        Function *function =
+            find_function(expr->call_name);
+
+        if (function)
+        {
+            if (
+                expr->call_argument_count !=
+                function->parameter_count
+            )
+            {
+                char message[256];
+
+                snprintf(
+                    message,
+                    sizeof(message),
+                    "function %s expects %d argument(s), got %d",
+                    function->name,
+                    function->parameter_count,
+                    expr->call_argument_count
+                );
+
+                set_runtime_error(expr, message);
+
+                return value_none();
+            }
+
+            /*
+             * Evaluate arguments BEFORE installing
+             * the function parameters.
+             */
+            Value arguments[16];
+
+            for (int i = 0;
+                 i < expr->call_argument_count;
+                 i++)
+            {
+                arguments[i] =
+                    evaluate(
+                        expr->call_arguments[i]
+                    );
+
+                if (arguments[i].type == VALUE_NONE)
+                {
+                    for (int j = 0; j < i; j++)
+                        value_free(&arguments[j]);
+
+                    return value_none();
+                }
+            }
+
+            /*
+             * Save variables which have the same names
+             * as the function parameters.
+             */
+            Variable saved[16];
+            int saved_count = 0;
+
+            for (int i = 0;
+                 i < function->parameter_count;
+                 i++)
+            {
+                Variable *existing =
+                    find_variable(
+                        function->parameters[i]
+                    );
+
+                if (existing)
+                {
+                    saved[saved_count].name =
+                        strdup(existing->name);
+
+                    saved[saved_count].value =
+                        value_copy(&existing->value);
+
+                    saved[saved_count].is_num =
+                        existing->is_num;
+
+                    saved_count++;
+                }
+
+                set_variable(
+                    function->parameters[i],
+                    value_copy(&arguments[i]),
+                    arguments[i].type == VALUE_NUMBER
+                );
+            }
+
+            Value result;
+
+            if (function->expression)
+            {
+                result =
+                    evaluate(
+                        function->expression
+                    );
+            }
+            else
+            {
+                result =
+                    value_number(0);
+            }
+
+            /*
+             * Remove temporary parameters.
+             */
+            for (int i = 0;
+                 i < function->parameter_count;
+                 i++)
+            {
+                Variable *variable =
+                    find_variable(
+                        function->parameters[i]
+                    );
+
+                if (variable)
+                {
+                    value_free(
+                        &variable->value
+                    );
+
+                    free(variable->name);
+
+                    int index =
+                        (int)(variable - variables);
+
+                    for (int j = index;
+                         j < variable_count - 1;
+                         j++)
+                    {
+                        variables[j] =
+                            variables[j + 1];
+                    }
+
+                    variable_count--;
+                }
+            }
+
+            /*
+             * Restore variables that existed before
+             * the function call.
+             */
+            for (int i = 0;
+                 i < saved_count;
+                 i++)
+            {
+                set_variable(
+                    saved[i].name,
+                    saved[i].value,
+                    saved[i].is_num
+                );
+
+                free(saved[i].name);
+            }
+
+            for (int i = 0;
+                 i < expr->call_argument_count;
+                 i++)
+            {
+                value_free(&arguments[i]);
+            }
+
+            return result;
+        }
+
+        /*
+         * Otherwise this must be a built-in math function.
+         *
+         * Built-in math functions currently take exactly
+         * one argument.
+         */
+        if (expr->call_argument_count != 1)
+        {
+            char message[256];
+
+            snprintf(
+                message,
+                sizeof(message),
+                "math function '%s' expects exactly 1 argument",
+                expr->call_name
+            );
+
+            set_runtime_error(expr, message);
+
+            return value_none();
+        }
+
         Value argument =
-            evaluate(expr->call_argument);
+            evaluate(
+                expr->call_arguments[0]
+            );
 
         if (argument.type != VALUE_NUMBER)
         {
@@ -530,11 +748,16 @@ static Value evaluate(Expr *expr)
         }
         else
         {
-            fprintf(
-                stderr,
-                "LOIS: unknown math function '%s'\n",
+            char message[256];
+
+            snprintf(
+                message,
+                sizeof(message),
+                "unknown function '%s'",
                 expr->call_name
             );
+
+            set_runtime_error(expr, message);
 
             value_free(&argument);
             return value_none();
@@ -549,6 +772,50 @@ static Value evaluate(Expr *expr)
     {
         Value right =
             evaluate(expr->right);
+
+        /*
+         * Factorial.
+         *
+         *     5!  -> 120
+         *     0!  -> 1
+         *
+         * Factorial only accepts non-negative integers.
+         */
+        if (expr->operator == TOKEN_FACTORIAL)
+        {
+            if (right.type != VALUE_NUMBER)
+            {
+                set_runtime_error(
+                    expr,
+                    "factorial requires a number"
+                );
+
+                value_free(&right);
+                return value_none();
+            }
+
+            double n = right.number;
+
+            if (n < 0 || floor(n) != n)
+            {
+                set_runtime_error(
+                    expr,
+                    "factorial requires a non-negative integer"
+                );
+
+                value_free(&right);
+                return value_none();
+            }
+
+            double result = 1;
+
+            for (double i = 2; i <= n; i++)
+                result *= i;
+
+            value_free(&right);
+
+            return value_number(result);
+        }
 
         if (expr->operator == TOKEN_MINUS)
         {

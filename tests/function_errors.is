@@ -1,0 +1,8 @@
+square is function x returns x*x
+add is function x y returns x+y
+
+output is square
+output is unknown(5)
+output is square(1,2)
+output is add(1)
+output is add(1,2,3)

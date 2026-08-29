@@ -1,0 +1,5 @@
+input is name for "Name: "
+output is "Hello " + name
+
+input = age
+output is "Age: " + age

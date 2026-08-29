@@ -1,0 +1,2 @@
+output is if 1 == 1 then 10 else 20
+output is if 1 == 2 then 10 else 20

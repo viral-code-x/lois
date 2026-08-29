@@ -169,7 +169,8 @@ static Expr *make_unary(
 
 static Expr *make_call(
     const char *name,
-    Expr *argument
+    Expr **arguments,
+    int argument_count
 )
 {
     Expr *expr =
@@ -178,8 +179,14 @@ static Expr *make_call(
     expr->call_name =
         strdup(name);
 
-    expr->call_argument =
-        argument;
+    expr->call_argument_count =
+        argument_count;
+
+    for (int i = 0; i < argument_count; i++)
+    {
+        expr->call_arguments[i] =
+            arguments[i];
+    }
 
     return expr;
 }
@@ -219,9 +226,130 @@ static int precedence(TokenType type)
     }
 }
 
-static Expr *parse_expression(int minimum_precedence);
+
+/*
+ * Postfix operators.
+ *
+ * Factorial is deliberately postfix:
+ *
+ *     5!
+ *     x!
+ *     (2 + 3)!
+ *
+ * It is NOT logical NOT.
+ * Logical negation remains the word "not".
+ */
 static Expr *parse_primary(void);
+
+static Expr *parse_postfix(void)
+{
+    Expr *expr = parse_primary();
+
+    if (!expr)
+        return NULL;
+
+    while (current()->type == TOKEN_FACTORIAL)
+    {
+        advance();
+
+        expr = make_unary(
+            expr,
+            TOKEN_FACTORIAL
+        );
+    }
+
+    return expr;
+}
+
+static Expr *parse_expression(int minimum_precedence);
+static Expr *parse_postfix(void);
 static Statement *parse_statement(void);
+
+
+/*
+ * Conditional expression:
+ *
+ *     if condition then value else value
+ *
+ * Example:
+ *
+ *     if n <= 1 then 1 else n * factorial(n-1)
+ */
+static Expr *parse_conditional_expression(void)
+{
+    if (!word_is("if"))
+        return NULL;
+
+    advance(); /* if */
+
+    Expr *condition =
+        parse_expression(0);
+
+    if (!condition)
+    {
+        parser_error(
+            "LOIS: expected condition after 'if'"
+        );
+
+        return NULL;
+    }
+
+    if (!word_is("then"))
+    {
+        parser_error(
+            "LOIS: expected 'then' in conditional expression"
+        );
+
+        return NULL;
+    }
+
+    advance(); /* then */
+
+    Expr *then_expr =
+        parse_expression(0);
+
+    if (!then_expr)
+    {
+        parser_error(
+            "LOIS: expected expression after 'then'"
+        );
+
+        return NULL;
+    }
+
+    if (!word_is("else"))
+    {
+        parser_error(
+            "LOIS: expected 'else' in conditional expression"
+        );
+
+        return NULL;
+    }
+
+    advance(); /* else */
+
+    Expr *else_expr =
+        parse_expression(0);
+
+    if (!else_expr)
+    {
+        parser_error(
+            "LOIS: expected expression after 'else'"
+        );
+
+        return NULL;
+    }
+
+    Expr *expr =
+        new_expr(EXPR_CONDITIONAL);
+
+    expr->condition = condition;
+    expr->left = then_expr;
+    expr->right = else_expr;
+
+    return expr;
+}
+
 
 static int word_exact(const char *word)
 {
@@ -305,6 +433,44 @@ static Expr *parse_primary(void)
         current();
 
     /*
+     * Conditional expression:
+     *
+     *     if condition then value else value
+     */
+    if (word_is("if"))
+        return parse_conditional_expression();
+
+    /*
+     * Prefix ! is logical NOT.
+     *
+     *     !True
+     *     !False
+     *     !x
+     *     !(3 > 2)
+     *
+     * Postfix ! is factorial and is handled by parse_postfix().
+     *
+     * The lexer gives both forms TOKEN_FACTORIAL because
+     * the parser determines whether ! is prefix or postfix
+     * based on where it appears.
+     */
+    if (token->type == TOKEN_FACTORIAL)
+    {
+        advance();
+
+        Expr *right =
+            parse_postfix();
+
+        if (!right)
+            return NULL;
+
+        return make_unary(
+            right,
+            TOKEN_NOT
+        );
+    }
+
+    /*
      * Set literal.
      */
     if (token->type == TOKEN_LBRACE)
@@ -321,7 +487,7 @@ static Expr *parse_primary(void)
         advance();
 
         Expr *right =
-            parse_primary();
+            parse_postfix();
 
         if (!right)
             return NULL;
@@ -435,32 +601,77 @@ static Expr *parse_primary(void)
             advance(); /* function name */
             advance(); /* '(' */
 
-            Expr *argument =
-                parse_expression(0);
+            Expr *arguments[16];
+            int argument_count = 0;
 
-            if (!argument)
+            /*
+             * Empty call:
+             *
+             *     greet()
+             */
+            if (current()->type != TOKEN_RPAREN)
             {
-                free(name);
-                return NULL;
+                while (1)
+                {
+                    if (argument_count >= 16)
+                    {
+                        fprintf(
+                            stderr,
+                            "LOIS: too many function arguments\\n"
+                        );
+
+                        free(name);
+                        return NULL;
+                    }
+
+                    Expr *argument =
+                        parse_expression(0);
+
+                    if (!argument)
+                    {
+                        free(name);
+                        return NULL;
+                    }
+
+                    arguments[argument_count++] =
+                        argument;
+
+                    if (current()->type != TOKEN_COMMA)
+                        break;
+
+                    advance(); /* comma */
+
+                    if (current()->type == TOKEN_RPAREN)
+                    {
+                        fprintf(
+                            stderr,
+                            "LOIS: expected expression after ','\\n"
+                        );
+
+                        free(name);
+                        return NULL;
+                    }
+                }
             }
 
             if (current()->type != TOKEN_RPAREN)
             {
                 fprintf(
                     stderr,
-                    "LOIS: expected ')' after function argument\n"
+                    "LOIS: expected ')' after function arguments\\n"
                 );
 
                 free(name);
                 return NULL;
             }
 
-            advance();
+            advance(); /* ')' */
 
             Expr *call =
                 make_call(
                     name,
-                    argument
+                    arguments,
+                    argument_count
                 );
 
             free(name);
@@ -544,7 +755,7 @@ static Expr *parse_primary(void)
         advance();
 
         Expr *right =
-            parse_primary();
+            parse_postfix();
 
         if (!right)
             return NULL;
@@ -576,8 +787,16 @@ static Expr *parse_primary(void)
 
 static Expr *parse_expression(int minimum_precedence)
 {
+    /*
+     * Conditional expressions are complete expressions.
+     *
+     *     if condition then value else value
+     */
+    if (word_is("if"))
+        return parse_conditional_expression();
+
     Expr *left =
-        parse_primary();
+        parse_postfix();
 
     if (!left)
         return NULL;
@@ -696,6 +915,17 @@ static Expr *parse_output(void)
 
     if (current()->type == TOKEN_WORD)
     {
+        /*
+         * Conditional expressions begin with the reserved word "if".
+         *
+         *     output is if x > 0 then 1 else 2
+         *
+         * "if" is normally reserved from literal output, but here
+         * it is the beginning of a valid expression.
+         */
+        if (word_is("if"))
+            return parse_expression(0);
+
         /*
          * A word followed by an operator is an expression.
          */
@@ -1108,6 +1338,35 @@ static Statement *parse_function_statement(void)
         }
 
         return statement;
+    }
+
+    /*
+     * A function definition must use "is".
+     *
+     * Reject:
+     *
+     *     name = function ...
+     *
+     * "=" is reserved for numeric assignment.
+     */
+    if (
+        peek(1)->type == TOKEN_ASSIGN &&
+        peek_word_is(2, "function")
+    )
+    {
+        parser_error(
+            "LOIS: function definition requires 'is'; '=' is for numeric assignment"
+        );
+
+        while (
+            current()->type != TOKEN_NEWLINE &&
+            current()->type != TOKEN_EOF
+        )
+        {
+            advance();
+        }
+
+        return NULL;
     }
 
     /*
@@ -2127,7 +2386,10 @@ static void free_expr(Expr *expr)
     if (expr->type == EXPR_CALL)
     {
         free(expr->call_name);
-        free_expr(expr->call_argument);
+        for (int i = 0; i < expr->call_argument_count; i++)
+        {
+            free_expr(expr->call_arguments[i]);
+        }
     }
 
     free(expr->text);

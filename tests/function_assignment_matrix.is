@@ -1,0 +1,17 @@
+square is function x returns x*x
+
+output is square(5)
+
+a is square(6)
+output is a
+
+b = square(7)
+output is b
+
+output is square(8)+1
+
+c is square(9)+1
+output is c
+
+d = square(10)+1
+output is d

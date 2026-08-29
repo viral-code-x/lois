@@ -1,0 +1,7 @@
+square is function x returns x*x
+
+a is square(5)
+b = square(6)
+
+output is a
+output is b

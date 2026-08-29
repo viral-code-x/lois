@@ -1,0 +1,19 @@
+zero is function returns 42
+identity is function x returns x
+add is function x y returns x+y
+square is function x returns x*x
+
+output is zero()
+output is identity(0)
+output is identity(-5)
+output is add(-10,5)
+output is square(0)
+output is square(-4)
+
+a is square(5)
+a is square(6)
+output is a
+
+b = square(7)
+b = square(8)
+output is b

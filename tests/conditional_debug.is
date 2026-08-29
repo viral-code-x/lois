@@ -1,0 +1,7 @@
+output is "BEFORE"
+
+x is if 1 == 1 then 10 else 20
+
+output is x
+
+output is "AFTER"

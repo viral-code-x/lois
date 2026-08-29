@@ -1,0 +1,11 @@
+square is function x it returns x * x
+double is function x it returns x * 2
+add = function x y it returns x + y
+
+a = square(5)
+b = double(a)
+c = add(b, 10)
+
+output = a
+output = b
+output = c

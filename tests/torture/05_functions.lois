@@ -1,0 +1,12 @@
+square is function x it returns x * x
+add = function x y it returns x + y
+double is function x it returns x * 2
+
+function is square 12
+function = square 13
+
+function is add 10 20
+function = add 30 40
+
+function is double 21
+function = double 22

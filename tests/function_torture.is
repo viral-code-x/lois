@@ -1,0 +1,54 @@
+/* ===== BASIC FUNCTIONS ===== */
+
+square is function x returns x*x
+double is function x returns x*2
+add is function x y returns x+y
+cube is function x returns x*x*x
+
+output is square(5)
+output is double(7)
+output is add(10,20)
+output is cube(3)
+
+/* ===== FUNCTION IN EXPRESSIONS ===== */
+
+output is square(3)+2
+output is double(5)*3
+output is add(2,3)*10
+output is square(3)+square(4)
+
+/* ===== STORE FUNCTION RESULTS ===== */
+
+a is square(6)
+b = square(7)
+
+output is a
+output is b
+
+/* ===== FUNCTIONS USING VARIABLES ===== */
+
+x is 100
+
+identity is function x returns x
+output is identity(42)
+output is x
+
+/* ===== REPEATED CALLS ===== */
+
+output is square(2)
+output is square(3)
+output is square(4)
+output is square(5)
+
+/* ===== NESTED FUNCTION CALLS ===== */
+
+output is square(double(3))
+output is double(square(4))
+
+/* ===== FUNCTION RESULT + ASSIGNMENT ===== */
+
+result is add(20,22)
+output is result
+
+result = add(30,12)
+output is result

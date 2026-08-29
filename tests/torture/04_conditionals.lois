@@ -1,0 +1,13 @@
+x = 50
+
+if x < 10 then output is wrong
+but if x < 20 then output is wrong
+but if x < 40 then output is wrong
+but if x < 60 then output is correct
+else output is wrong
+
+if True then output is true
+else output is false
+
+if False then output is wrong
+else output is correct
