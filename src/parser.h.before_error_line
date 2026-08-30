@@ -13,8 +13,7 @@ typedef enum
     EXPR_INDEX,
     EXPR_BINARY,
     EXPR_UNARY,
-    EXPR_CALL,
-    EXPR_CONDITIONAL
+    EXPR_CALL
 } ExprType;
 
 typedef struct Expr Expr;
@@ -22,8 +21,6 @@ typedef struct Expr Expr;
 struct Expr
 {
     ExprType type;
-
-    int line;
 
     char *text;
     double number;
@@ -33,12 +30,8 @@ struct Expr
     Expr *left;
     Expr *right;
 
-    /* Conditional expression */
-    Expr *condition;
-
     char *call_name;
-    Expr *call_arguments[16];
-    int call_argument_count;
+    Expr *call_argument;
 
     /* Set indexing: numbers1, numbers2, ... */
     Expr *index_target;
@@ -88,7 +81,6 @@ struct Statement
 };
 
 Statement *parser_parse(TokenList *tokens);
-int parser_had_error(void);
 
 void parser_free(Statement *statement);
 
