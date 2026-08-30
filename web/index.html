@@ -1,333 +1,152 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>LOIS Web Interpreter</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LOIS</title>
 
-<style>
-body {
-    font-family: monospace;
-    max-width: 900px;
-    margin: 40px auto;
-    padding: 0 20px;
-    background: #fafafa;
-}
+    <style>
+        * {
+            box-sizing: border-box;
+        }
 
-h1 {
-    margin-bottom: 4px;
-}
+        body {
+            margin: 0;
+            background: #0b0b0b;
+            color: #eee;
+            font-family: monospace;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
 
-.subtitle {
-    margin-top: 0;
-    color: #555;
-}
+        header {
+            height: 60px;
+            padding: 0 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid #222;
+        }
 
-textarea {
-    width: 100%;
-    min-height: 300px;
-    box-sizing: border-box;
-    padding: 14px;
-    font: 15px monospace;
-    border: 1px solid #aaa;
-    border-radius: 4px;
-    resize: vertical;
-}
+        .logo {
+            font-size: 24px;
+            font-weight: bold;
+        }
 
-button {
-    margin: 12px 0 20px;
-    padding: 9px 18px;
-    font: bold 14px monospace;
-    cursor: pointer;
-}
+        button {
+            background: #eee;
+            color: #000;
+            border: 0;
+            padding: 10px 20px;
+            font-family: monospace;
+            font-weight: bold;
+            cursor: pointer;
+        }
 
-pre {
-    background: #111;
-    color: #eee;
-    padding: 14px;
-    min-height: 100px;
-    white-space: pre-wrap;
-    border-radius: 4px;
-}
+        main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            gap: 16px;
+        }
 
-.code {
-    color: #1464a0;
-}
+        textarea {
+            flex: 1;
+            width: 100%;
+            resize: none;
+            background: #111;
+            color: #eee;
+            border: 1px solid #333;
+            padding: 20px;
+            font: 16px monospace;
+            outline: none;
+        }
 
-.keyword {
-    color: #7b2cbf;
-    font-weight: bold;
-}
+        #output {
+            height: 180px;
+            background: #050505;
+            border: 1px solid #333;
+            padding: 20px;
+            white-space: pre-wrap;
+            overflow: auto;
+        }
 
-.number {
-    color: #a33;
-}
-
-.string {
-    color: #087f5b;
-}
-</style>
+        .label {
+            color: #777;
+            margin-bottom: -8px;
+        }
+    </style>
 </head>
 
 <body>
 
-<h1>LOIS : Language Operated on IS</h1>
-<p class="subtitle">LOIS Web Interpreter</p>
+<header>
+    <div class="logo">LOIS</div>
+    <button onclick="runLOIS()">RUN ▶</button>
+</header>
 
-<label><b>LOIS CODE</b></label>
+<main>
 
-<textarea id="code">name is Alex
-age is 19
+    <div class="label">CODE</div>
 
-output is hello name
+    <textarea id="code">x is 10
+output is x * 5</textarea>
 
-if age > 18
-then output is "adult"</textarea>
+    <div class="label">OUTPUT</div>
 
-<br>
+    <div id="output"></div>
 
-<button onclick="runLOIS()">[ RUN LOIS ]</button>
-
-<h3>OUTPUT</h3>
-<pre id="output"></pre>
+</main>
 
 <script>
+let ModuleReady;
+
+const Module = {
+    onRuntimeInitialized() {
+        ModuleReady = true;
+    }
+};
+
 function runLOIS() {
-    const code = document.getElementById("code").value;
-    const output = document.getElementById("output");
-
-    const variables = {};
-    const lines = code.split(/\r?\n/);
-    const result = [];
-
-    function isNumber(value) {
-        return /^-?(?:\d+(?:\.\d*)?|\.\d+)$/.test(value);
+    if (!ModuleReady) {
+        document.getElementById("output").textContent =
+            "LOIS engine is still loading...";
+        return;
     }
 
-    function valueOf(name) {
-        if (Object.prototype.hasOwnProperty.call(variables, name)) {
-            return variables[name];
-        }
+    const source =
+        document.getElementById("code").value;
 
-        return name;
-    }
+    const length =
+        Module.lengthBytesUTF8(source) + 1;
 
-    function tokenize(text) {
-        return text.match(
-            /"[^"]*"|'[^']*'|>=|<=|==|!=|[()+\-*/%^<>]|[A-Za-z_][A-Za-z0-9_]*|\d+(?:\.\d+)?|\S/g
-        ) || [];
-    }
+    const ptr =
+        Module._malloc(length);
 
-    function replaceVariables(text) {
-        return text.replace(
-            /\b[A-Za-z_][A-Za-z0-9_]*\b/g,
-            word => {
-                if (
-                    word === "and" ||
-                    word === "or" ||
-                    word === "not" ||
-                    word === "True" ||
-                    word === "False"
-                ) {
-                    return word;
-                }
+    Module.stringToUTF8(
+        source,
+        ptr,
+        length
+    );
 
-                return Object.prototype.hasOwnProperty.call(variables, word)
-                    ? JSON.stringify(variables[word])
-                    : word;
-            }
-        );
-    }
-
-    function evaluateExpression(expr) {
-        expr = expr.trim();
-
-        if (expr.startsWith('"') && expr.endsWith('"')) {
-            return expr.slice(1, -1);
-        }
-
-        if (expr.startsWith("'") && expr.endsWith("'")) {
-            return expr.slice(1, -1);
-        }
-
-        if (Object.prototype.hasOwnProperty.call(variables, expr)) {
-            return variables[expr];
-        }
-
-        if (expr === "True") return true;
-        if (expr === "False") return false;
-
-        if (isNumber(expr)) {
-            return Number(expr);
-        }
-
-        let js = replaceVariables(expr);
-
-        js = js
-            .replace(/\bTrue\b/g, "true")
-            .replace(/\bFalse\b/g, "false")
-            .replace(/\bnot\b/g, "!")
-            .replace(/\band\b/g, "&&")
-            .replace(/\bor\b/g, "||")
-            .replace(/\^/g, "**");
-
-        try {
-            return Function('"use strict"; return (' + js + ')')();
-        } catch {
-            return expr
-                .split(/\s+/)
-                .map(part => valueOf(part))
-                .join(" ");
-        }
-    }
-
-    function outputExpression(expr) {
-        expr = expr.trim();
-
-        if (expr.startsWith('"') && expr.endsWith('"')) {
-            result.push(expr.slice(1, -1));
-            return;
-        }
-
-        if (expr.startsWith("'") && expr.endsWith("'")) {
-            result.push(expr.slice(1, -1));
-            return;
-        }
-
-        const value = evaluateExpression(expr);
-
-        if (typeof value === "boolean") {
-            result.push(value ? "True" : "False");
-        } else {
-            result.push(String(value));
-        }
-    }
-
-    function evaluateCondition(condition) {
-        return Boolean(evaluateExpression(condition));
-    }
-
-    for (let i = 0; i < lines.length; i++) {
-        let line = lines[i].trim();
-
-        if (!line) continue;
-
-        /*
-         * THEN line:
-         *
-         * if age > 18
-         * then output is "adult"
-         */
-        if (line.startsWith("if ")) {
-            const condition = line.slice(3).trim();
-
-            const next = lines[i + 1]
-                ? lines[i + 1].trim()
-                : "";
-
-            if (!next.startsWith("then ")) {
-                result.push(
-                    "LOIS: expected 'then' after if condition"
-                );
-                continue;
-            }
-
-            i++;
-
-            if (evaluateCondition(condition)) {
-                const action = next.slice(5).trim();
-
-                if (action.startsWith("output is ")) {
-                    outputExpression(
-                        action.slice(10)
-                    );
-                }
-            }
-
-            continue;
-        }
-
-        /*
-         * Input.
-         */
-        if (line.startsWith("input ")) {
-            let rest = line.slice(6).trim();
-
-            if (rest.startsWith("is ")) {
-                rest = rest.slice(3).trim();
-            }
-
-            const name = rest;
-
-            const value = prompt(
-                "LOIS input: " + name
-            );
-
-            if (value === null) {
-                variables[name] = "";
-            } else if (isNumber(value)) {
-                variables[name] = Number(value);
-            } else {
-                variables[name] = value;
-            }
-
-            continue;
-        }
-
-        /*
-         * Output.
-         */
-        if (line.startsWith("output is ")) {
-            outputExpression(
-                line.slice(10)
-            );
-
-            continue;
-        }
-
-        /*
-         * Assignment using IS.
-         */
-        const isMatch = line.match(
-            /^([A-Za-z_][A-Za-z0-9_]*)\s+is\s+(.+)$/
+    const result =
+        Module.ccall(
+            "lois_run_source",
+            "string",
+            ["number"],
+            [ptr]
         );
 
-        if (isMatch) {
-            const name = isMatch[1];
-            const expression = isMatch[2];
+    Module._free(ptr);
 
-            variables[name] =
-                evaluateExpression(expression);
-
-            continue;
-        }
-
-        /*
-         * Assignment using =.
-         */
-        const equalMatch = line.match(
-            /^([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.+)$/
-        );
-
-        if (equalMatch) {
-            const name = equalMatch[1];
-            const expression = equalMatch[2];
-
-            variables[name] =
-                evaluateExpression(expression);
-
-            continue;
-        }
-
-        result.push(
-            "LOIS: unknown statement on line " +
-            (i + 1)
-        );
-    }
-
-    output.textContent = result.join("\n");
+    document.getElementById("output").textContent =
+        result;
 }
 </script>
+
+<script src="lois.js"></script>
 
 </body>
 </html>
