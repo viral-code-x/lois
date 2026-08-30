@@ -2,6 +2,7 @@
 
 #include "interpreter.h"
 #include "value.h"
+#include "output.h"
 
 #include <math.h>
 #include <stdio.h>
@@ -211,27 +212,36 @@ static void set_variable(
 
 static void print_number(double number)
 {
+    char buffer[64];
+
     if (number == (long long)number)
     {
-        printf(
+        snprintf(
+            buffer,
+            sizeof(buffer),
             "%lld",
             (long long)number
         );
     }
     else
     {
-        printf(
+        snprintf(
+            buffer,
+            sizeof(buffer),
             "%.12g",
             number
         );
     }
+
+    lois_print(buffer);
 }
 
 static void print_value(Value *value)
 {
+
     if (value->type == VALUE_STRING)
     {
-        printf("%s", value->string);
+        lois_print(value->string);
     }
     else if (value->type == VALUE_NUMBER)
     {
@@ -239,8 +249,7 @@ static void print_value(Value *value)
     }
     else if (value->type == VALUE_BOOL)
     {
-        printf(
-            "%s",
+        lois_print(
             value->number != 0
                 ? "True"
                 : "False"
@@ -248,24 +257,23 @@ static void print_value(Value *value)
     }
     else if (value->type == VALUE_SET)
     {
-        printf("{");
+        lois_print("{");
 
         for (int i = 0;
              i < value->set.count;
              i++)
         {
             if (i > 0)
-                printf(",");
+                lois_print(",");
 
             print_value(
                 &value->set.items[i]
             );
         }
 
-        printf("}");
+        lois_print("}");
     }
 }
-
 static int truthy(Value *value)
 {
     if (value->type == VALUE_NUMBER)
@@ -1375,7 +1383,7 @@ static void execute_output(Expr *expr)
 
     value_free(&value);
 
-    printf("\n");
+    lois_print("\n");
 }
 
 
@@ -1787,7 +1795,7 @@ static void execute_statement(Statement *statement)
                 }
 
                 print_value(&result);
-                printf("\n");
+                lois_print("\n");
 
                 value_free(&result);
 
@@ -1817,7 +1825,7 @@ static void execute_statement(Statement *statement)
                 }
 
                 print_value(&result);
-                printf("\n");
+                lois_print("\n");
 
                 value_free(&result);
 

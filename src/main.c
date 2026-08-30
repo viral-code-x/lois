@@ -1,6 +1,7 @@
 #include "lexer.h"
 #include "parser.h"
 #include "interpreter.h"
+#include "output.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -77,6 +78,11 @@ int main(int argc, char **argv)
     }
 
     interpreter_run(program);
+
+    printf("%s", lois_output_get());
+
+    if (interpreter_had_error())
+        fprintf(stderr, "%s", lois_error_get());
 
     int had_error =
         interpreter_had_error();
