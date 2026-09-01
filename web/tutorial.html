@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LOIS Tutorial</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<nav>
+    <a class="logo" href="index.html">LOIS</a>
+
+    <div class="nav-links">
+        <a href="interpreter.html">Interpreter</a>
+        <a href="tutorial.html">Tutorial</a>
+        <a href="donation.html">Donation</a>
+    </div>
+</nav>
+
+<main class="tutorial-page">
+
+<h1>LOIS</h1>
+<h2>LANGUAGE OPERATED on IS</h2>
+
+<p>
+<strong>LOIS</strong> is a simple, human-readable programming language designed
+to make programming and mathematics explicit and easy to understand.
+</p>
+
+<p>
+LOIS is made for beginners. It keeps programming concepts recognizable and
+follows clear rules instead of hiding everything behind magic.
+</p>
+
+<h2>Basic Syntax</h2>
+
+<p>LOIS programs are written as a sequence of statements. Newlines normally separate statements.</p>
+
+<pre><code>name is "Afnan"
+age = 15
+
+if age >= 13
+then output is "Teenager"</code></pre>
+
+<h2>Comments</h2>
+
+<h3>Single-line comments</h3>
+
+<pre><code>note: this line is ignored
+
+output is "Hello"</code></pre>
+
+<p><code>note:</code> is case-insensitive.</p>
+
+<h3>Multi-line comments</h3>
+
+<pre><code>[
+This entire section
+is ignored by LOIS.
+]
+
+output is "Hello"</code></pre>
+
+<h2>Output</h2>
+
+<p>LOIS has two main output forms:</p>
+
+<pre><code>output is ...
+output = ...</code></pre>
+
+<h3>output is</h3>
+
+<p><code>output is</code> prints something directly or prints a stored value.</p>
+
+<pre><code>output is "Hello World"
+output is 12
+output is "1 + 2"</code></pre>
+
+<p>The last example prints <code>1 + 2</code>, rather than calculating it.</p>
+
+<h3>output =</h3>
+
+<p><code>output =</code> evaluates an expression before printing it.</p>
+
+<pre><code>output = 1 + 2
+output = (10 + 5) * 2</code></pre>
+
+<p>Output:</p>
+
+<pre><code>3
+30</code></pre>
+
+<h2>Variables</h2>
+
+<h3>Strings</h3>
+
+<pre><code>name is "Viral"
+message is "Hello World"</code></pre>
+
+<h3>Numbers</h3>
+
+<pre><code>x = 8
+y = 5
+
+output = x * y</code></pre>
+
+<h3>Booleans</h3>
+
+<pre><code>ready is True
+finished is False</code></pre>
+
+<p><code>True</code> and <code>False</code> are case-sensitive boolean literals.
+Lowercase <code>true</code> and <code>false</code> are ordinary words.</p>
+
+<h2>is vs =</h2>
+
+<table>
+<tr><th>Syntax</th><th>Purpose</th></tr>
+<tr><td><code>name is "Alice"</code></td><td>Store text</td></tr>
+<tr><td><code>age = 15</code></td><td>Numeric assignment</td></tr>
+<tr><td><code>output is age</code></td><td>Direct output</td></tr>
+<tr><td><code>output = age + 5</code></td><td>Evaluate and output</td></tr>
+</table>
+
+<p>The simple rule:</p>
+
+<pre><code>is → direct/literal-style assignment or output
+=  → numeric/expression assignment or evaluation</code></pre>
+
+<h2>Decimals and upto</h2>
+
+<p>LOIS uses one numeric type: <code>num</code>.</p>
+
+<pre><code>x = 3
+
+output = x / 5 upto 3</code></pre>
+
+<p>Output:</p>
+
+<pre><code>0.600</code></pre>
+
+<p><code>upto</code> controls the number of decimal places displayed.</p>
+
+<h2>Arithmetic</h2>
+
+<table>
+<tr><th>Operator</th><th>Meaning</th></tr>
+<tr><td><code>+</code></td><td>Addition</td></tr>
+<tr><td><code>-</code></td><td>Subtraction</td></tr>
+<tr><td><code>*</code></td><td>Multiplication</td></tr>
+<tr><td><code>/</code></td><td>Division</td></tr>
+<tr><td><code>%</code></td><td>Modulo</td></tr>
+<tr><td><code>^</code></td><td>Power</td></tr>
+<tr><td><code>!</code></td><td>Factorial</td></tr>
+</table>
+
+<pre><code>output = 5 + 2
+output = 5 - 2
+output = 5 * 2
+output = 10 / 2
+output = 10 % 3
+output = 2 ^ 3
+output = 5!</code></pre>
+
+<h2>Comparisons</h2>
+
+<pre><code>&gt;
+&lt;
+&gt;=
+&lt;=
+==
+!=</code></pre>
+
+<pre><code>x = 10
+
+output is x &gt; 5
+output is x == 10
+output is x != 5</code></pre>
+
+<p>Comparison results are booleans.</p>
+
+<h2>Logical Operators</h2>
+
+<h3>not</h3>
+
+<pre><code>output is not True</code></pre>
+
+<h3>and</h3>
+
+<pre><code>output is True and False</code></pre>
+
+<h3>or</h3>
+
+<pre><code>output is True or False</code></pre>
+
+<p><code>and</code> has higher precedence than <code>or</code>.</p>
+
+<h2>Parentheses and Precedence</h2>
+
+<pre><code>output = (2 + 3) * 4</code></pre>
+
+<p>Output:</p>
+
+<pre><code>20</code></pre>
+
+<p>Without parentheses:</p>
+
+<pre><code>output = 2 + 3 * 4</code></pre>
+
+<p>Output:</p>
+
+<pre><code>14</code></pre>
+
+<p>Precedence from highest to lowest:</p>
+
+<ol>
+<li>Parentheses</li>
+<li>Unary operations</li>
+<li>Power</li>
+<li>Multiplication, division, modulo</li>
+<li>Addition, subtraction</li>
+<li>Comparisons</li>
+<li><code>and</code></li>
+<li><code>or</code></li>
+</ol>
+
+<h2>Negative Numbers</h2>
+
+<pre><code>x = -5
+output = -x</code></pre>
+
+<h2>Mathematical Functions</h2>
+
+<table>
+<tr><th>Function</th><th>Purpose</th></tr>
+<tr><td><code>root(x)</code></td><td>Square root</td></tr>
+<tr><td><code>root3(x)</code></td><td>Cube root</td></tr>
+<tr><td><code>root4(x)</code></td><td>Fourth root</td></tr>
+<tr><td><code>rootn(x)</code></td><td>Nth root</td></tr>
+<tr><td><code>sin(x)</code></td><td>Sine</td></tr>
+<tr><td><code>cos(x)</code></td><td>Cosine</td></tr>
+<tr><td><code>tan(x)</code></td><td>Tangent</td></tr>
+<tr><td><code>log(x)</code></td><td>Base-10 logarithm</td></tr>
+<tr><td><code>ln(x)</code></td><td>Natural logarithm</td></tr>
+<tr><td><code>abs(x)</code></td><td>Absolute value</td></tr>
+<tr><td><code>round(x)</code></td><td>Nearest integer</td></tr>
+<tr><td><code>floor(x)</code></td><td>Round down</td></tr>
+<tr><td><code>ceil(x)</code></td><td>Round up</td></tr>
+</table>
+
+<pre><code>output = root(25)
+output = root3(27)
+output = abs(-25)
+output = round(3.6)
+output = floor(3.9)
+output = ceil(3.1)</code></pre>
+
+<h2>The pi Constant</h2>
+
+<pre><code>output = pi
+output = sin(pi / 2)</code></pre>
+
+<p><code>pi</code> is a built-in numeric constant.</p>
+
+<h2>Factorial</h2>
+
+<pre><code>output = 5!
+output = (3 + 2)!
+output = 5! + 3!</code></pre>
+
+<p>Factorial requires a non-negative whole number.</p>
+
+<h2>Sets</h2>
+
+<pre><code>numbers is {10, 20, 30}
+
+output is numbers</code></pre>
+
+<p>Elements are separated by commas.</p>
+
+<h3>Set indexing</h3>
+
+<p>LOIS uses 1-based indexing.</p>
+
+<pre><code>numbers is {10, 20, 30}
+
+output is numbers1
+output is numbers2
+output is numbers3</code></pre>
+
+<p>Output:</p>
+
+<pre><code>10
+20
+30</code></pre>
+
+<h2>Input</h2>
+
+<h3>String input</h3>
+
+<pre><code>input is name
+output is name</code></pre>
+
+<p><code>input is</code> expects text.</p>
+
+<h3>Numeric input</h3>
+
+<pre><code>input = age
+output = age * 2</code></pre>
+
+<p><code>input =</code> expects a number.</p>
+
+<h2>If / Then / Else</h2>
+
+<pre><code>age = 18
+
+if age &gt;= 18
+then output is "Adult"</code></pre>
+
+<p><code>then</code> is required.</p>
+
+<h3>Else</h3>
+
+<pre><code>age = 15
+
+if age &gt;= 18
+then output is "Adult"
+else output is "Not adult"</code></pre>
+
+<h2>But If</h2>
+
+<p><code>but if</code> works like an else-if.</p>
+
+<pre><code>score = 75
+
+if score &gt;= 90
+then output is "A"
+but if score &gt;= 80
+then output is "B"
+but if score &gt;= 70
+then output is "C"
+else output is "Below C"</code></pre>
+
+<h2>While Loops</h2>
+
+<pre><code>x = 0
+
+while x &lt; 5
+then x = x + 1
+then output is x</code></pre>
+
+<p>The loop continues while its condition is true.</p>
+
+<h2>For Loops</h2>
+
+<pre><code>for x &lt;= 5
+then output is x</code></pre>
+
+<p>The loop variable starts at 1 and automatically increases by 1.</p>
+
+<h2>Repeat</h2>
+
+<pre><code>repeat 5
+then output is "Hello"</code></pre>
+
+<p>The statement executes five times.</p>
+
+<h2>Stop</h2>
+
+<pre><code>stop</code></pre>
+
+<p><code>stop</code> immediately stops the current loop.</p>
+
+<h2>Skip</h2>
+
+<pre><code>skip</code></pre>
+
+<p><code>skip</code> skips the current iteration and continues with the next one.</p>
+
+<table>
+<tr><th>Statement</th><th>Equivalent idea</th></tr>
+<tr><td><code>stop</code></td><td>break</td></tr>
+<tr><td><code>skip</code></td><td>continue</td></tr>
+</table>
+
+<h2>Functions</h2>
+
+<p>The primary function syntax is:</p>
+
+<pre><code>square is function of x * x</code></pre>
+
+<p>This creates a function named <code>square</code> with parameter <code>x</code>.</p>
+
+<h3>Calling functions</h3>
+
+<p>Function calls always use parentheses.</p>
+
+<pre><code>square is function of x * x
+
+output = square(5)</code></pre>
+
+<p>Output:</p>
+
+<pre><code>25</code></pre>
+
+<h3>Multiple parameters</h3>
+
+<pre><code>add is function of x + y
+
+output = add(3, 6)</code></pre>
+
+<p>Output:</p>
+
+<pre><code>9</code></pre>
+
+<h3>Functions in expressions</h3>
+
+<pre><code>square is function of x * x
+
+output = square(5) + 10</code></pre>
+
+<p>Output:</p>
+
+<pre><code>35</code></pre>
+
+<h3>String functions</h3>
+
+<pre><code>greet is function of "hello " + name
+
+name is "Alice"
+
+output is greet(name)</code></pre>
+
+<h3>Alternative function syntax</h3>
+
+<pre><code>function is square is of x * x
+
+function square is of x * x</code></pre>
+
+<p>The recommended form remains:</p>
+
+<pre><code>square is function of x * x</code></pre>
+
+<h2>Returns</h2>
+
+<p>Functions can explicitly describe their result using <code>returns</code>.</p>
+
+<pre><code>square function x it returns x * x</code></pre>
+
+<p>The expression after <code>returns</code> is the function result.</p>
+
+<h2>Typecasting</h2>
+
+<p>LOIS supports <code>num</code> and <code>string</code> type conversion.</p>
+
+<pre><code>age = 15
+age is string</code></pre>
+
+<p>And:</p>
+
+<pre><code>age is num</code></pre>
+
+<h2>Case Sensitivity</h2>
+
+<p>Many language keywords are case-insensitive.</p>
+
+<pre><code>and
+AND
+And</code></pre>
+
+<p>These represent the same logical operator.</p>
+
+<p>Boolean literals are deliberately different:</p>
+
+<pre><code>True
+False</code></pre>
+
+<p>Lowercase <code>true</code> and <code>false</code> are ordinary words.</p>
+
+<h2>Nesting and then</h2>
+
+<p>LOIS does not use indentation to determine nesting.</p>
+
+<pre><code>if x &gt; 5
+then output is "Large"</code></pre>
+
+<p>Nested structures use <code>then</code>:</p>
+
+<pre><code>while x &lt; 10
+then if x == 5
+then stop</code></pre>
+
+<h2>Reserved Words</h2>
+
+<pre><code>is
+num
+string
+function
+of
+if
+then
+else
+but
+while
+for
+repeat
+return
+returns
+output
+input
+and
+or
+not
+True
+False
+stop
+skip</code></pre>
+
+<p>If you want to print one literally, use quotes:</p>
+
+<pre><code>output is "if"</code></pre>
+
+<h2>Operators</h2>
+
+<pre><code>Arithmetic:
++ - * / % ^ !
+
+Comparison:
+&gt; &lt; &gt;= &lt;= == !=
+
+Assignment:
+=
+
+Logical:
+and or not
+
+Grouping:
+( )
+
+Absolute value:
+| |</code></pre>
+
+<h2>Common Errors</h2>
+
+<h3>Undefined variable</h3>
+
+<pre><code>output is unknown</code></pre>
+
+<p>An undefined variable causes an error.</p>
+
+<h3>Invalid numeric assignment</h3>
+
+<pre><code>x = "hello"</code></pre>
+
+<p><code>=</code> expects a numeric expression.</p>
+
+<h3>Missing then</h3>
+
+<pre><code>if x &gt; 5
+output is "yes"</code></pre>
+
+<p>Correct:</p>
+
+<pre><code>if x &gt; 5
+then output is "yes"</code></pre>
+
+<h3>Invalid function call</h3>
+
+<pre><code>square 5</code></pre>
+
+<p>Correct:</p>
+
+<pre><code>square(5)</code></pre>
+
+<h2>Complete Example</h2>
+
+<pre><code>name is "Alice"
+age = 15
+
+square is function of x * x
+
+if age &gt;= 13
+then output is "Teenager"
+
+output is name
+output = square(5)</code></pre>
+
+<h2>The Core Idea</h2>
+
+<p>The most important distinction in LOIS is <code>is</code> versus <code>=</code>.</p>
+
+<pre><code>name is "Alice"</code></pre>
+
+<p>stores text.</p>
+
+<pre><code>age = 15</code></pre>
+
+<p>stores a number.</p>
+
+<pre><code>output is name</code></pre>
+
+<p>prints a value directly.</p>
+
+<pre><code>output = age + 5</code></pre>
+
+<p>evaluates an expression and prints the result.</p>
+
+<p>Functions follow the same readable structure:</p>
+
+<pre><code>square is function of x * x
+
+square(5)</code></pre>
+
+<p>And control structures use <code>then</code> rather than indentation.</p>
+
+<p><strong>LOIS: simple syntax, explicit rules, real programming.</strong></p>
+
+</main>
+
+</body>
+</html>

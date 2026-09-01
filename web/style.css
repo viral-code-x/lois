@@ -1,0 +1,262 @@
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: #ffffff;
+    color: #111111;
+}
+
+nav {
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 32px;
+    border-bottom: 1px solid #dddddd;
+}
+
+.logo {
+    font-size: 24px;
+    font-weight: bold;
+    color: #111111;
+    text-decoration: none;
+}
+
+.nav-links {
+    display: flex;
+    gap: 28px;
+}
+
+.nav-links a {
+    color: #333333;
+    text-decoration: none;
+}
+
+.nav-links a:hover {
+    text-decoration: underline;
+}
+
+.hero {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 120px 24px;
+    text-align: center;
+}
+
+.hero h1 {
+    font-size: 72px;
+    margin: 0 0 20px;
+}
+
+.tagline {
+    font-size: 20px;
+    line-height: 1.6;
+    color: #555555;
+}
+
+.actions {
+    margin-top: 40px;
+    display: flex;
+    justify-content: center;
+    gap: 16px;
+}
+
+.button {
+    display: inline-block;
+    padding: 12px 24px;
+    background: #111111;
+    color: white;
+    text-decoration: none;
+    border-radius: 6px;
+}
+
+.button.secondary {
+    background: #eeeeee;
+    color: #111111;
+}
+
+
+.interpreter-page {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 50px 24px;
+}
+
+.page-heading {
+    margin-bottom: 30px;
+}
+
+.page-heading h1 {
+    margin: 0 0 10px;
+    font-size: 42px;
+}
+
+.page-heading p {
+    margin: 0 0 12px;
+    color: #555555;
+}
+
+#status {
+    font-size: 14px;
+    color: #666666;
+}
+
+.interpreter {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+.panel {
+    border: 1px solid #dddddd;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #fafafa;
+}
+
+.panel-header {
+    height: 50px;
+    padding: 0 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid #dddddd;
+    font-size: 13px;
+    font-weight: bold;
+}
+
+.panel-header button {
+    border: 0;
+    border-radius: 5px;
+    padding: 8px 18px;
+    background: #111111;
+    color: white;
+    cursor: pointer;
+}
+
+.panel-header button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+#code {
+    width: 100%;
+    height: 500px;
+    resize: vertical;
+    border: 0;
+    outline: 0;
+    padding: 18px;
+    font-family: monospace;
+    font-size: 15px;
+    line-height: 1.6;
+    background: white;
+}
+
+#output {
+    margin: 0;
+    height: 500px;
+    overflow: auto;
+    padding: 18px;
+    white-space: pre-wrap;
+    font-family: monospace;
+    font-size: 15px;
+    line-height: 1.6;
+    background: #111111;
+    color: white;
+}
+
+@media (max-width: 800px) {
+    .interpreter {
+        grid-template-columns: 1fr;
+    }
+
+    #code,
+    #output {
+        height: 350px;
+    }
+
+    .nav-links {
+        gap: 12px;
+    }
+
+    nav {
+        padding: 0 16px;
+    }
+}
+
+.tutorial-page {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 50px 24px 80px;
+}
+
+.tutorial-page h1 {
+    font-size: 48px;
+    margin-bottom: 4px;
+}
+
+.tutorial-page h2 {
+    margin-top: 45px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #ddd;
+}
+
+.tutorial-page h3 {
+    margin-top: 28px;
+}
+
+.tutorial-page p,
+.tutorial-page li {
+    line-height: 1.7;
+}
+
+.tutorial-page pre {
+    overflow-x: auto;
+    padding: 18px;
+    border-radius: 10px;
+    background: #111;
+    color: #fff;
+    line-height: 1.55;
+}
+
+.tutorial-page code {
+    font-family: monospace;
+}
+
+.tutorial-page table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 20px 0;
+}
+
+.tutorial-page th,
+.tutorial-page td {
+    text-align: left;
+    padding: 12px;
+    border: 1px solid #ddd;
+}
+
+.tutorial-page th {
+    font-weight: 700;
+}
+
+.tutorial-page ol {
+    padding-left: 28px;
+}
+
+@media (max-width: 700px) {
+    .tutorial-page {
+        padding: 30px 16px 60px;
+    }
+
+    .tutorial-page h1 {
+        font-size: 38px;
+    }
+
+    .tutorial-page table {
+        font-size: 14px;
+    }
+}
