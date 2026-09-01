@@ -1,0 +1,9 @@
+input is player
+
+if player == "rock"
+then output is "rock"
+but if player == "paper"
+then output is "paper"
+but if player == "scissors"
+then output is "scissors"
+else output is "invalid"

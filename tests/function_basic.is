@@ -1,0 +1,7 @@
+add is function of x + y
+square is function of x * x
+greet is function of "hello"
+
+output is add(3, 6)
+output is square(5)
+output is greet()

@@ -1,0 +1,6 @@
+a is True
+b is False
+
+output is a AND b
+output is a OR b
+output is NOT b

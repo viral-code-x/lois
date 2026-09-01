@@ -1,0 +1,14 @@
+age = 15
+age is num
+
+output is age
+output = age + 5
+
+age is string
+
+output is age
+
+x is "123"
+x is num
+
+output = x + 7

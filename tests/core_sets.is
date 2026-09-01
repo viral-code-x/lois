@@ -1,0 +1,14 @@
+numbers is {1, 2, 3, 4}
+output is numbers
+
+values is {1 + 1, 2 * 3, 10 / 2}
+output is values
+
+empty is {}
+output is empty
+
+numbers2 is {10, 20, 30}
+output is numbers2
+output is numbers21
+output is numbers22
+output is numbers23

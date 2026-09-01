@@ -1,0 +1,6 @@
+message is Hello there
+
+output is message
+
+a is 1 + 2
+output is a

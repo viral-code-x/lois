@@ -1,0 +1,11 @@
+name is Alice
+age = 15
+
+output is name
+output is age
+
+x = 8
+y = 5
+
+output = x + y
+output = x * y

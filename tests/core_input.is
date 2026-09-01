@@ -1,0 +1,7 @@
+output is "Enter your name:"
+input is name
+output is name
+
+output is "Enter your age:"
+input = age
+output = age + 5

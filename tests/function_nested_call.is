@@ -1,0 +1,4 @@
+square is function of x * x
+double_square is function of square(x) + square(y)
+
+output is double_square(2, 3)

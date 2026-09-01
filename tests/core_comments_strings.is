@@ -1,0 +1,28 @@
+note: this entire line should disappear
+
+NOTE: this too
+
+Note: and this
+
+output is "Hello"
+
+[
+This entire block
+should be ignored.
+Nothing here should execute.
+]
+
+output is "After comment"
+
+message is "Hello
+World"
+
+output is message
+
+output is "1 + 2"
+
+x = 5
+
+output is "x = 999"
+
+output is x

@@ -1,0 +1,17 @@
+output = 2 + 3 * 4
+output = (2 + 3) * 4
+
+output = 2 ^ 3 ^ 2
+
+output = -10
+output = -5 + 2
+output = 10 * -2
+
+x = 10
+output = -x
+
+output = not False
+output = not True
+
+output = True or False and False
+output = (True or False) and False

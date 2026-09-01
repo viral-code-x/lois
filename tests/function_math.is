@@ -1,0 +1,7 @@
+add is function of x+y
+multiply is function of x*y
+square is function of x*x
+
+output is add(3,6)
+output is multiply(4,5)
+output is square(7)

@@ -1,0 +1,4 @@
+output is "Hello"
+output is 12
+output = 1 + 2
+output = 10 * 5

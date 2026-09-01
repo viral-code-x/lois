@@ -1,0 +1,6 @@
+quadratic_positive is function of (-b + root(b^2 - 4*a*c)) / (2*a)
+
+quadratic_negative is function of (-b - root(b^2 - 4*a*c)) / (2*a)
+
+output = quadratic_positive(1, 5, 6)
+output = quadratic_negative(1, 5, 6)

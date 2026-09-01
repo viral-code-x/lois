@@ -1,0 +1,11 @@
+repeat 5
+then output is "Hello"
+
+repeat 2 + 3
+then output is "Expression"
+
+x = 0
+
+while x < 3
+then x = x + 1
+then output = x

@@ -1,0 +1,12 @@
+output is "=== ROCK PAPER SCISSORS ==="
+output is "Choose: rock, paper, or scissors"
+
+input is player for "Your choice: "
+
+if player == "rock"
+then output is "You chose rock"
+but if player == "paper"
+then output is "You chose paper"
+but if player == "scissors"
+then output is "You chose scissors"
+else output is "Invalid choice"

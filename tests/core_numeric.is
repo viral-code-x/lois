@@ -1,0 +1,8 @@
+x = 8
+
+output = x + 2
+output = x - 2
+output = x * 2
+output = x / 2
+output = x ^ 2
+output = 10 % 3

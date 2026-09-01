@@ -1,0 +1,9 @@
+gcd is function of if b == 0 then a else gcd(b, a % b)
+
+lcm is function of (abs(a * b)) / gcd(a, b)
+
+output = gcd(48, 18)
+output = gcd(100, 35)
+
+output = lcm(12, 18)
+output = lcm(21, 6)

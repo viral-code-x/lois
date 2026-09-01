@@ -1,0 +1,39 @@
+note: Boolean literals
+a is True
+b is False
+
+output is a
+output is b
+
+note: not
+output is not True
+output is not False
+
+note: and
+output is True and True
+output is True and False
+output is False and True
+output is False and False
+
+note: or
+output is True or True
+output is True or False
+output is False or True
+output is False or False
+
+note: precedence
+output is True or False and False
+output is False or True and True
+
+note: comparisons
+output is 10 > 5
+output is 10 < 5
+output is 10 >= 10
+output is 10 <= 10
+output is 10 == 10
+output is 10 != 5
+
+note: boolean variables in conditions
+x = 10
+if x > 5 and x < 20
+then output is "condition works"

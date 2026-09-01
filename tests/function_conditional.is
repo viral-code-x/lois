@@ -1,0 +1,4 @@
+abs is function of if x >= 0 then x else 0 - x
+
+output is abs(-5)
+output is abs(8)

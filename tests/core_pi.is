@@ -1,0 +1,4 @@
+output = pi
+output = sin(pi / 2)
+output = cos(0)
+output = pi * 5 ^ 2

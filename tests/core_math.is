@@ -1,0 +1,26 @@
+output = root(25)
+output = root3(27)
+output = root4(16)
+output = root5(32)
+
+output = sin(0)
+output = cos(0)
+output = tan(0)
+
+output = log(100)
+output = ln(1)
+
+output = abs(-25)
+output = round(3.6)
+output = floor(3.9)
+output = ceil(3.1)
+
+output = |-25|
+
+output = 0!
+output = 1!
+output = 5!
+output = 6!
+
+output = 5! + 3!
+output = (3 + 2)!

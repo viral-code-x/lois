@@ -1,0 +1,6 @@
+fib is function of if n <= 1 then n else fib(n - 1) + fib(n - 2)
+
+output = fib(0)
+output = fib(1)
+output = fib(5)
+output = fib(10)

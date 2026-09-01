@@ -1,0 +1,50 @@
+age = 20
+
+if age >= 18
+then output is "Adult"
+
+age = 15
+
+if age >= 18
+then output is "Adult"
+else output is "Not adult"
+
+score = 95
+
+if score >= 90
+then output is "A"
+but if score >= 80
+then output is "B"
+but if score >= 70
+then output is "C"
+else output is "Below C"
+
+score = 75
+
+if score >= 90
+then output is "A"
+but if score >= 80
+then output is "B"
+but if score >= 70
+then output is "C"
+else output is "Below C"
+
+score = 50
+
+if score >= 90
+then output is "A"
+but if score >= 80
+then output is "B"
+but if score >= 70
+then output is "C"
+else output is "Below C"
+
+has_id is True
+
+if age >= 18 and has_id == True
+then output is "Allowed"
+
+has_id is False
+
+if not has_id
+then output is "No ID"

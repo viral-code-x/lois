@@ -1,0 +1,19 @@
+x = 0
+
+while x < 10
+then x = x + 1
+then if x == 3
+then stop
+then output is x
+
+output is "after stop"
+
+y = 0
+
+while y < 5
+then y = y + 1
+then if y == 3
+then skip
+then output is y
+
+output is "after skip"

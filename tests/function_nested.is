@@ -1,0 +1,5 @@
+add is function of x + y
+square is function of x * x
+
+output is square(add(2, 3))
+output is add(square(3), square(4))
