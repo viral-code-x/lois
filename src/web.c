@@ -1,0 +1,41 @@
+#include "web.h"
+
+#include "lexer.h"
+#include "parser.h"
+#include "interpreter.h"
+#include "output.h"
+
+#include <stdlib.h>
+
+const char *lois_run_source(const char *source)
+{
+    if (!source)
+        return "LOIS: no source provided\n";
+
+    lois_output_reset();
+    lois_error_reset();
+
+    TokenList tokens = lexer_tokenize(source);
+
+    Statement *program = parser_parse(&tokens);
+
+    if (parser_had_error())
+    {
+        parser_free(program);
+        lexer_free(&tokens);
+
+        lois_output_write(lois_error_get());
+
+        return lois_output_get();
+    }
+
+    interpreter_run(program);
+
+    if (interpreter_had_error())
+        lois_output_write(lois_error_get());
+
+    parser_free(program);
+    lexer_free(&tokens);
+
+    return lois_output_get();
+}

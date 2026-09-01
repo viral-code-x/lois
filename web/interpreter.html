@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LOIS Interpreter</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<nav>
+    <a class="logo" href="index.html">LOIS</a>
+
+    <div class="nav-links">
+        <a href="interpreter.html">Interpreter</a>
+        <a href="tutorial.html">Tutorial</a>
+        <a href="donation.html">Donation</a>
+    </div>
+</nav>
+
+<main class="interpreter-page">
+    <div class="page-heading">
+        <h1>LOIS Interpreter</h1>
+        <p>Write LOIS code and run it directly in your browser.</p>
+        <span id="status">Loading LOIS...</span>
+    </div>
+
+    <section class="interpreter">
+        <div class="panel">
+            <div class="panel-header">
+                <span>CODE</span>
+                <button id="run" disabled>Run</button>
+            </div>
+
+            <textarea id="code" spellcheck="false">name is "LOIS"
+output is name</textarea>
+        </div>
+
+        <div class="panel">
+            <div class="panel-header">
+                <span>OUTPUT</span>
+            </div>
+
+            <pre id="output"></pre>
+        </div>
+    </section>
+</main>
+
+<script src="lois.js"></script>
+<script src="interpreter.js"></script>
+
+</body>
+</html>
