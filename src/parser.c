@@ -903,14 +903,42 @@ static Expr *parse_output(void)
     )
     {
         /*
-         * If this starts an expression, parse the expression.
-         * This also handles:
+         * Parse the first expression normally.
+         *
+         * This handles:
          *
          *     "Age: " + age
          *     10 + 20
          *     (x + 1) * 2
+         *
+         * But output also allows adjacent pieces:
+         *
+         *     output is "hello" name
+         *
+         * so consume adjacent words/strings as implicit
+         * concatenation using the same internal TOKEN_PLUS
+         * representation as explicit +.
          */
-        return parse_expression(0);
+        Expr *left = parse_expression(0);
+
+        while (
+            current()->type == TOKEN_STRING ||
+            current()->type == TOKEN_WORD
+        )
+        {
+            Expr *right = parse_expression(0);
+
+            if (!right)
+                return left;
+
+            left = make_binary(
+                left,
+                right,
+                TOKEN_PLUS
+            );
+        }
+
+        return left;
     }
 
     if (current()->type == TOKEN_WORD)
@@ -919,9 +947,6 @@ static Expr *parse_output(void)
          * Conditional expressions begin with the reserved word "if".
          *
          *     output is if x > 0 then 1 else 2
-         *
-         * "if" is normally reserved from literal output, but here
-         * it is the beginning of a valid expression.
          */
         if (word_is("if"))
             return parse_expression(0);
@@ -951,26 +976,18 @@ static Expr *parse_output(void)
 
         /*
          * A word followed by "(" is a function call.
-         *
-         * Function calls in LOIS are ALWAYS parenthesized:
-         *
-         *     square(5)
-         *     add(3, 6)
-         *
-         * Bare calls such as:
-         *
-         *     square 5
-         *
-         * are invalid.
          */
         if (peek(1)->type == TOKEN_LPAREN)
             return parse_expression(0);
 
-        if (
-            peek(1)->type == TOKEN_NUMBER ||
-            peek(1)->type == TOKEN_STRING ||
-            peek(1)->type == TOKEN_LPAREN
-        )
+        /*
+         * A word followed by a number is still invalid.
+         *
+         *     output is name 5
+         *
+         * requires an explicit operator or proper function syntax.
+         */
+        if (peek(1)->type == TOKEN_NUMBER)
         {
             parser_error(
                 "LOIS: function calls require parentheses, e.g. square(5)"
@@ -983,6 +1000,40 @@ static Expr *parse_output(void)
             advance();
 
             return NULL;
+        }
+
+        /*
+         * A word followed by a string means implicit output
+         * concatenation.
+         *
+         *     output is name "is gay"
+         *
+         * is equivalent to:
+         *
+         *     output is name + "is gay"
+         */
+        if (peek(1)->type == TOKEN_STRING)
+        {
+            Expr *left = parse_expression(0);
+
+            while (
+                current()->type == TOKEN_STRING ||
+                current()->type == TOKEN_WORD
+            )
+            {
+                Expr *right = parse_expression(0);
+
+                if (!right)
+                    return left;
+
+                left = make_binary(
+                    left,
+                    right,
+                    TOKEN_PLUS
+                );
+            }
+
+            return left;
         }
 
         /*
@@ -1017,44 +1068,38 @@ static Expr *parse_output(void)
             current()->type == TOKEN_NUMBER
         )
         {
-            right = parse_primary();
-        }
-        else
-        {
-            if (is_reserved_word(current()->text))
-            {
-                char message[256];
+            right =
+                new_expr(
+                    EXPR_LITERAL
+                );
 
-                snprintf(
-                    message,
-                    sizeof(message),
-                    "\"%s\" is a reserved LOIS word; use quotes for literal output",
+            right->text =
+                strdup(
                     current()->text
                 );
 
-                parser_error(message);
-                advance();
-                continue;
-            }
-
-            /*
-             * Bare words in output are literal text.
-             *
-             *     output is hello name
-             *
-             * "hello" and "name" are initially text. Variable
-             * resolution is handled by the output evaluator.
-             */
-            right = new_expr(EXPR_LITERAL);
-
-            right->text =
-                strdup(current()->text);
+            right->line =
+                current()->line;
 
             advance();
         }
+        else
+        {
+            right =
+                new_expr(
+                    EXPR_LITERAL
+                );
 
-        if (!right)
-            break;
+            right->text =
+                strdup(
+                    current()->text
+                );
+
+            right->line =
+                current()->line;
+
+            advance();
+        }
 
         if (!left)
         {

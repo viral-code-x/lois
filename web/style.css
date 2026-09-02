@@ -260,3 +260,27 @@ nav {
         font-size: 14px;
     }
 }
+
+/* LOIS browser input */
+
+#input-area {
+    display: flex;
+    gap: 8px;
+    padding: 10px;
+}
+
+#input-area[hidden] {
+    display: none;
+}
+
+#console-input {
+    flex: 1;
+    font-family: monospace;
+    font-size: 16px;
+    padding: 8px;
+}
+
+#submit-input {
+    padding: 8px 16px;
+    cursor: pointer;
+}
