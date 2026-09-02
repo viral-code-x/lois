@@ -1,0 +1,71 @@
+output is "========================================"
+output is "      FUCKINGTILLDEATHTEST"
+output is "========================================"
+
+output is "TEST 1: Basic string input"
+output is "Enter your name:"
+input is name
+output is "Hello " + name
+
+output is "TEST 2: Numeric input"
+output is "Enter your age:"
+input = age
+
+if age >= 18 then
+    output is "You are an adult"
+but if age >= 13 then
+    output is "You are a teenager"
+else
+    output is "You are a child"
+
+output is "TEST 3: Number input and arithmetic"
+output is "Enter a number:"
+input = number
+
+output is number + 10
+output is number * 2
+output is number ^ 2
+
+output is "TEST 4: while loop"
+count is 1
+
+while count <= 5 then
+    output = count
+    count = count + 1
+
+output is "TEST 5: for loop"
+
+for x<=5 then
+    output = x
+
+output is "TEST 6: input + condition"
+
+output is "Enter a secret number:"
+input = secret
+
+if secret == 42 then
+    output is "THE ANSWER IS CORRECT"
+but if secret > 42 then
+    output is "Too high"
+else
+    output is "Too low"
+
+output is "TEST 7: while + condition"
+
+counter is 1
+
+while counter <= 5 then
+    if counter == 3 then
+        output is "THREE"
+    else
+        output = counter
+    counter = counter + 1
+
+output is "TEST 8: nested for loops"
+
+for x<=3 then
+    output = x
+
+output is "========================================"
+output is "       FUCKINGTILLDEATHTEST DONE"
+output is "========================================"
