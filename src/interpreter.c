@@ -2191,13 +2191,22 @@ static void execute_statement(Statement *statement)
                     buffer[
                         sizeof(buffer) - 1
                     ] = '\0';
+
+                    /*
+                     * An empty line is still valid input.
+                     * Give it a temporary newline so the
+                     * common input-processing block below
+                     * accepts it.
+                     */
+                    if (buffer[0] == '\0')
+                        buffer[0] = '\n';
                 }
                 else
                 {
                     buffer[0] = '\0';
                 }
 
-                if (buffer[0] != '\0')
+                if (web_input_ok)
 #else
                 fflush(stdout);
 

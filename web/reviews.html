@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LOIS — Programming Language</title>
+    <title>LOIS — Reviews</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -19,16 +19,34 @@
 </nav>
 
 <main class="hero">
-    <h1>LOIS</h1>
+    <h1>Reviews</h1>
+
     <p class="tagline">
-        A simple programming language built to make programming easier to understand.
+        Tell us what you think about LOIS.
     </p>
 
-    <div class="actions">
-        <a class="button" href="interpreter.html">Try LOIS</a>
-        <a class="button secondary" href="tutorial.html">Learn LOIS</a>
+    <form id="review-form">
+
+        <textarea
+            id="review"
+            placeholder="Write your review..."
+            required
+        ></textarea>
+
+        <button
+            type="submit"
+            class="button"
+        >
+            Submit Review
+        </button>
+
+    </form>
+
+    <div id="reviews">
     </div>
 </main>
+
+<script src="reviews.js"></script>
 
 </body>
 </html>

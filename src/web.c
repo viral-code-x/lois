@@ -5,20 +5,19 @@
 #include "interpreter.h"
 #include "output.h"
 
-#include <stdlib.h>
-
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
 
 EM_JS(int, lois_web_readline, (char *buffer, int max_len), {
     return Asyncify.handleSleep(function(wakeUp) {
+
         if (typeof window.loisRequestInput !== "function") {
             wakeUp(0);
             return;
         }
 
         window.loisRequestInput(function(value) {
-            stringToUTF8(value, buffer, max_len);
+            stringToUTF8(value + "\n", buffer, max_len);
             wakeUp(1);
         });
     });
@@ -34,7 +33,6 @@ const char *lois_run_source(const char *source)
     lois_error_reset();
 
     TokenList tokens = lexer_tokenize(source);
-
     Statement *program = parser_parse(&tokens);
 
     if (parser_had_error())

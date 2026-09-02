@@ -14,7 +14,7 @@
     <div class="nav-links">
         <a href="interpreter.html">Interpreter</a>
         <a href="tutorial.html">Tutorial</a>
-        <a href="donation.html">Donation</a>
+        <a href="reviews.html">Reviews</a>
     </div>
 </nav>
 
@@ -22,10 +22,11 @@
     <div class="page-heading">
         <h1>LOIS Interpreter</h1>
         <p>Write LOIS code and run it directly in your browser.</p>
-        <span id="status">Loading LOIS...</span>
     </div>
 
     <section class="interpreter">
+
+        <!-- CODE -->
         <div class="panel">
             <div class="panel-header">
                 <span>CODE</span>
@@ -36,24 +37,29 @@
 output is name</textarea>
         </div>
 
-        <div class="panel">
+        <!-- TERMINAL -->
+        <div class="panel terminal-panel">
             <div class="panel-header">
-                <span>OUTPUT</span>
+                <span>TERMINAL</span>
             </div>
 
-            <pre id="output"></pre>
+            <div id="terminal" class="terminal">
+                <pre id="output"></pre>
 
-            <div id="input-area" hidden>
-                <input
-                    id="console-input"
-                    type="text"
-                    autocomplete="off"
-                    spellcheck="false"
-                    placeholder="Enter input..."
-                >
-                <button id="submit-input">Enter</button>
+                <div id="input-area" hidden>
+                    <span id="terminal-prompt">&gt;</span>
+
+                    <input
+                        id="console-input"
+                        type="text"
+                        autocomplete="off"
+                        spellcheck="false"
+                        placeholder=""
+                    >
+                </div>
             </div>
         </div>
+
     </section>
 </main>
 

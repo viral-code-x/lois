@@ -10,6 +10,21 @@ static size_t output_length = 0;
 static char error_buffer[OUTPUT_SIZE];
 static size_t error_length = 0;
 
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+
+EM_JS(void, lois_web_write, (const char *text), {
+    if (
+        typeof window.loisTerminalWrite === "function" &&
+        text
+    ) {
+        window.loisTerminalWrite(
+            UTF8ToString(text)
+        );
+    }
+});
+#endif
+
 void lois_output_reset(void)
 {
     output_length = 0;
@@ -34,6 +49,10 @@ void lois_output_write(const char *text)
 
     output_length += length;
     output_buffer[output_length] = '\0';
+
+#ifdef __EMSCRIPTEN__
+    lois_web_write(text);
+#endif
 }
 
 const char *lois_output_get(void)

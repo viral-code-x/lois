@@ -1,63 +1,111 @@
 let LOIS_MODULE = null;
 
-window.loisInputResolver = null;
+let loisInputResolver = null;
 
-window.loisRequestInput = function (resolve) {
-    const inputArea =
+function terminal() {
+    return document.getElementById("terminal");
+}
+
+function output() {
+    return document.getElementById("output");
+}
+
+function scrollTerminal() {
+    const t = terminal();
+
+    if (t)
+        t.scrollTop = t.scrollHeight;
+}
+
+/*
+ * C calls this whenever LOIS writes output.
+ */
+window.loisTerminalWrite = function(text) {
+    if (!text)
+        return;
+
+    const out = output();
+
+    if (!out)
+        return;
+
+    out.textContent += text;
+
+    scrollTerminal();
+};
+
+/*
+ * C calls this when LOIS needs input.
+ */
+window.loisRequestInput = function(resolve) {
+    const area =
         document.getElementById("input-area");
 
     const input =
         document.getElementById("console-input");
 
-    if (!inputArea || !input) {
+    if (!area || !input) {
         resolve("");
         return;
     }
 
-    inputArea.hidden = false;
+    loisInputResolver = resolve;
+
+    area.hidden = false;
+
     input.value = "";
     input.focus();
 
-    window.loisInputResolver = resolve;
+    scrollTerminal();
 };
 
 function submitInput() {
-    const resolver =
-        window.loisInputResolver;
-
-    if (!resolver)
+    if (!loisInputResolver)
         return;
 
     const input =
         document.getElementById("console-input");
 
-    const inputArea =
+    const area =
         document.getElementById("input-area");
 
     const value = input.value;
 
-    const output =
-        document.getElementById("output");
+    /*
+     * Echo input into terminal.
+     */
+    const out = output();
 
-    output.textContent +=
-        "> " + value + "\n";
+    if (out)
+        out.textContent += "> " + value + "\n";
 
-    inputArea.hidden = true;
+    area.hidden = true;
 
-    window.loisInputResolver = null;
+    const resolve = loisInputResolver;
+    loisInputResolver = null;
 
-    resolver(value + "\n");
+    scrollTerminal();
+
+    /*
+     * Resume the paused C interpreter.
+     */
+    resolve(value);
 }
 
 async function initLOIS() {
     try {
         LOIS_MODULE = await LOIS();
 
-        document.getElementById("status").textContent = "Ready";
-        document.getElementById("run").disabled = false;
+        const run =
+            document.getElementById("run");
+
+        if (run)
+            run.disabled = false;
+
     } catch (error) {
-        document.getElementById("status").textContent = "Failed to load LOIS";
-        document.getElementById("output").textContent = String(error);
+        output().textContent =
+            "Failed to load LOIS:\n" +
+            String(error);
     }
 }
 
@@ -65,16 +113,27 @@ async function runLOIS() {
     const code =
         document.getElementById("code").value;
 
-    const output =
-        document.getElementById("output");
+    const out = output();
 
     if (!LOIS_MODULE) {
-        output.textContent =
+        out.textContent =
             "LOIS is still loading...";
+
         return;
     }
 
-    output.textContent = "";
+    /*
+     * Fresh terminal.
+     */
+    out.textContent = "";
+
+    const area =
+        document.getElementById("input-area");
+
+    if (area)
+        area.hidden = true;
+
+    loisInputResolver = null;
 
     try {
         const run =
@@ -82,47 +141,60 @@ async function runLOIS() {
                 "lois_run_source",
                 "string",
                 ["string"],
-                { async: true }
+                {
+                    async: true
+                }
             );
 
-        const result =
-            await run(code);
+        /*
+         * Asyncify pauses here whenever
+         * LOIS asks the browser for input.
+         */
+        await run(code);
 
-        output.textContent =
-            result || "";
+        scrollTerminal();
+
     } catch (error) {
-        output.textContent =
-            "Runtime error: " + error;
+        out.textContent +=
+            "\nRuntime error: " +
+            String(error);
+
+        scrollTerminal();
     }
 }
 
-document.addEventListener("DOMContentLoaded", () => {
-    document
-        .getElementById("run")
-        .addEventListener("click", runLOIS);
+document.addEventListener(
+    "DOMContentLoaded",
+    function() {
 
-    const submitButton =
-        document.getElementById("submit-input");
+        const run =
+            document.getElementById("run");
 
-    if (submitButton) {
-        submitButton.addEventListener(
-            "click",
-            submitInput
-        );
+        if (run)
+            run.addEventListener(
+                "click",
+                runLOIS
+            );
+
+        const input =
+            document.getElementById(
+                "console-input"
+            );
+
+        if (input) {
+            input.addEventListener(
+                "keydown",
+                function(event) {
+
+                    if (event.key === "Enter") {
+                        event.preventDefault();
+                        submitInput();
+                    }
+
+                }
+            );
+        }
+
+        initLOIS();
     }
-
-    const consoleInput =
-        document.getElementById("console-input");
-
-    if (consoleInput) {
-        consoleInput.addEventListener(
-            "keydown",
-            (event) => {
-                if (event.key === "Enter")
-                    submitInput();
-            }
-        );
-    }
-
-    initLOIS();
-});
+);

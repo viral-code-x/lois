@@ -157,14 +157,15 @@ nav {
 
 #output {
     margin: 0;
-    height: 500px;
-    overflow: auto;
-    padding: 18px;
+    padding: 0;
+    min-height: 0;
+    height: auto;
+    overflow: visible;
     white-space: pre-wrap;
     font-family: monospace;
     font-size: 15px;
     line-height: 1.6;
-    background: #111111;
+    background: transparent;
     color: white;
 }
 
@@ -261,26 +262,56 @@ nav {
     }
 }
 
-/* LOIS browser input */
+/* LOIS terminal */
+
+.terminal {
+    height: 500px;
+    overflow: auto;
+    padding: 18px;
+    background: #111111;
+    color: white;
+    font-family: monospace;
+    font-size: 15px;
+    line-height: 1.6;
+}
 
 #input-area {
     display: flex;
-    gap: 8px;
-    padding: 10px;
+    align-items: center;
+    margin-top: 0;
+    padding: 0;
+    background: transparent;
 }
 
 #input-area[hidden] {
     display: none;
 }
 
-#console-input {
-    flex: 1;
-    font-family: monospace;
-    font-size: 16px;
-    padding: 8px;
+#terminal-prompt {
+    flex: 0 0 auto;
+    margin-right: 8px;
+    color: white;
 }
 
-#submit-input {
-    padding: 8px 16px;
-    cursor: pointer;
+#console-input {
+    flex: 1;
+    min-width: 0;
+    border: 0;
+    outline: 0;
+    padding: 0;
+    background: transparent;
+    color: white;
+    font-family: monospace;
+    font-size: 15px;
+    line-height: 1.6;
+}
+
+#console-input::selection {
+    background: #555555;
+}
+
+@media (max-width: 800px) {
+    .terminal {
+        height: 350px;
+    }
 }
