@@ -1,6 +1,11 @@
 #define _GNU_SOURCE
 
 #include "interpreter.h"
+
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#include "web.h"
+#endif
 #include "value.h"
 #include "output.h"
 
@@ -2169,11 +2174,31 @@ static void execute_statement(Statement *statement)
                         evaluate(statement->expression);
 
                     if (prompt.type == VALUE_STRING)
-                        printf("%s", prompt.string);
+                        lois_output_write(prompt.string);
 
                     value_free(&prompt);
                 }
 
+#ifdef __EMSCRIPTEN__
+                int web_input_ok =
+                    lois_web_readline(
+                        buffer,
+                        sizeof(buffer)
+                    );
+
+                if (web_input_ok)
+                {
+                    buffer[
+                        sizeof(buffer) - 1
+                    ] = '\0';
+                }
+                else
+                {
+                    buffer[0] = '\0';
+                }
+
+                if (buffer[0] != '\0')
+#else
                 fflush(stdout);
 
                 if (
@@ -2183,6 +2208,7 @@ static void execute_statement(Statement *statement)
                         stdin
                     )
                 )
+#endif
                 {
                     buffer[
                         strcspn(
