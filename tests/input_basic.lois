@@ -1,3 +1,0 @@
-output is "What is your name?"
-input is name
-output is "Hello" name
