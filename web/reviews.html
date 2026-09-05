@@ -26,23 +26,22 @@
     </p>
 
     <form id="review-form">
-
         <textarea
             id="review"
+            maxlength="1000"
             placeholder="Write your review..."
             required
         ></textarea>
 
-        <button
-            type="submit"
-            class="button"
-        >
+        <button type="submit" class="button" id="submit-review">
             Submit Review
         </button>
 
+        <p id="review-status"></p>
     </form>
 
     <div id="reviews">
+        <p>Loading reviews...</p>
     </div>
 </main>
 

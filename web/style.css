@@ -315,3 +315,47 @@ nav {
         height: 350px;
     }
 }
+/* Reviews */
+#review-form {
+    width: min(700px, 100%);
+    margin: 2rem auto;
+}
+
+#review {
+    width: 100%;
+    min-height: 140px;
+    box-sizing: border-box;
+    padding: 1rem;
+    resize: vertical;
+    font: inherit;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+    margin-bottom: 1rem;
+}
+
+#review-status {
+    min-height: 1.4em;
+    margin-top: 0.75rem;
+}
+
+#reviews {
+    width: min(700px, 100%);
+    margin: 2rem auto;
+}
+
+.review {
+    padding: 1rem;
+    margin-bottom: 1rem;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    overflow-wrap: anywhere;
+}
+
+.review p {
+    margin: 0 0 0.75rem;
+    white-space: pre-wrap;
+}
+
+.review small {
+    opacity: 0.65;
+}
