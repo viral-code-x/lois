@@ -301,12 +301,10 @@ static Value evaluate(Expr *expr)
     if (expr->type == EXPR_LITERAL)
         return value_string(expr->text);
 
-    /*
-     * Set literal.
+    /* Set literal.
      *
      * EXPR_SET stores its elements as a linked Expr chain
-     * through left/right.
-     */
+     * through left or right */
     if (expr->type == EXPR_SET)
     {
         Value set = value_set();
