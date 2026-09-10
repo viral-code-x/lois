@@ -2134,66 +2134,39 @@ static Statement *parse_while_statement(void)
     Statement *statement =
         new_statement(STMT_WHILE);
 
-    /*
-     * Parse the loop condition.
-     */
     statement->condition =
         parse_expression(0);
 
     if (!statement->condition)
     {
-        fprintf(
-            stderr,
-            "LOIS: expected condition after 'while'\n"
-        );
-
+        fprintf(stderr, "LOIS: expected condition after 'while'\n");
         parser_free(statement);
-
         return NULL;
     }
 
-    /*
-     * Move to the "then" line.
-     */
     skip_newlines();
 
     if (!word_is("then"))
     {
-        fprintf(
-            stderr,
-            "LOIS: expected 'then' after while condition\n"
-        );
-
+        fprintf(stderr, "LOIS: expected 'then' after while condition\n");
         parser_free(statement);
-
         return NULL;
     }
 
     advance();
 
-    /*
-     * Parse the first statement of the loop body.
-     */
     Statement *body =
         parse_single_body();
 
     if (!body)
     {
-        fprintf(
-            stderr,
-            "LOIS: expected statement after 'then' in while loop\n"
-        );
-
+        fprintf(stderr, "LOIS: expected statement after 'then' in while loop\n");
         parser_free(statement);
-
         return NULL;
     }
 
     statement->body = body;
 
-    /*
-     * The first body statement ends at the newline.
-     */
     while (
         current()->type != TOKEN_NEWLINE &&
         current()->type != TOKEN_EOF
@@ -2202,52 +2175,26 @@ static Statement *parse_while_statement(void)
         advance();
     }
 
-    /*
-     * Additional statements immediately following the
-     * while body belong to the loop.
-     *
-     * Example:
-     *
-     *     while count <= 3
-     *     then output is count
-     *     count = count + 1
-     *
-     * becomes:
-     *
-     *     WHILE
-     *       body -> OUTPUT -> ASSIGN
-     *
-     * This is important because execute_statement()
-     * already walks statement->next.
-     */
     Statement *body_tail = body;
-
-    while (body_tail->next)
-        body_tail = body_tail->next;
 
     while (1)
     {
-        /*
-         * The current statement ended at a newline.
-         * Move to the next line.
-         */
+        if (current()->type == TOKEN_EOF)
+            break;
+
         if (current()->type == TOKEN_NEWLINE)
             advance();
 
-        /*
-         * Only a line beginning with "then" continues
-         * the while body.
-         *
-         * Any other statement belongs to the outer level.
-         */
+        /* A blank line ends the while body. */
+        if (current()->type == TOKEN_NEWLINE)
+            break;
+
+        /* Only an explicit "then" continues the body. */
         if (!word_is("then"))
             break;
 
         advance();
 
-        /*
-         * Parse the next loop-body statement.
-         */
         Statement *next_body =
             parse_single_body();
 
@@ -2257,9 +2204,6 @@ static Statement *parse_while_statement(void)
         body_tail->next = next_body;
         body_tail = next_body;
 
-        /*
-         * Consume the rest of this logical line.
-         */
         while (
             current()->type != TOKEN_NEWLINE &&
             current()->type != TOKEN_EOF
@@ -2267,50 +2211,14 @@ static Statement *parse_while_statement(void)
         {
             advance();
         }
-
-        if (current()->type == TOKEN_EOF)
-            break;
     }
+
+    /* Keep the loop body separate from outer statements. */
+    body_tail->next = NULL;
 
     return statement;
 }
 
-
-/*
- * Parse:
- *
- *     repeat 5
- *     then output is hello
- *
- * The repeat count is a normal expression, so this also
- * allows:
- *
- *     repeat x
- *     then output is hello
- *
- * and:
- *
- *     repeat 2 + 3
- *     then output is hello
- */
-
-/*
- * Parse:
- *
- *     for x<=10
- *     then output is x
- *
- *     for x<=10
- *     then for y<=10
- *     then output is x*y
- *
- * A for loop always starts its variable at 1 and
- * increments it by 1 after each iteration.
- *
- * "then" attaches exactly one statement as the body.
- * This means nesting does not require indentation,
- * braces, or an "end" keyword.
- */
 static Statement *parse_for_statement(void)
 {
     if (!word_is("for"))
