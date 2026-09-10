@@ -611,6 +611,91 @@ static Value evaluate(Expr *expr)
         }
 
         /*
+         * Set indexing:
+         *
+         *     number(1)
+         *     number(i)
+         *
+         * If the call name is a set rather than a function,
+         * treat its single argument as a 1-based index.
+         */
+        Variable *set_variable =
+            find_variable(expr->call_name);
+
+        if (set_variable &&
+            set_variable->value.type == VALUE_SET)
+        {
+            if (expr->call_argument_count != 1)
+            {
+                set_runtime_error(
+                    expr,
+                    "set indexing expects exactly 1 index"
+                );
+
+                return value_none();
+            }
+
+            Value index_value =
+                evaluate(expr->call_arguments[0]);
+
+            if (index_value.type != VALUE_NUMBER)
+            {
+                set_runtime_error(
+                    expr,
+                    "set index requires a number"
+                );
+
+                value_free(&index_value);
+                return value_none();
+            }
+
+            int index =
+                (int)index_value.number;
+
+            if (index_value.number != (double)index ||
+                index < 1)
+            {
+                set_runtime_error(
+                    expr,
+                    "set index must be a positive integer"
+                );
+
+                value_free(&index_value);
+                return value_none();
+            }
+
+            Value *item =
+                value_set_get(
+                    &set_variable->value,
+                    index
+                );
+
+            if (!item)
+            {
+                char message[256];
+
+                snprintf(
+                    message,
+                    sizeof(message),
+                    "set index %d out of range",
+                    index
+                );
+
+                set_runtime_error(expr, message);
+
+                value_free(&index_value);
+                return value_none();
+            }
+
+            Value result =
+                value_copy(item);
+
+            value_free(&index_value);
+
+            return result;
+        }
+
+        /*
          * Otherwise this must be a built-in math function.
          *
          * Built-in math functions currently take exactly
@@ -1819,6 +1904,15 @@ static void execute_while(Statement *statement)
             statement->body
         );
 
+        /*
+         * A runtime error inside the loop body must stop
+         * the loop immediately. Otherwise input failures,
+         * invalid indexes, etc. can cause the loop to keep
+         * executing until the safety limit is reached.
+         */
+        if (runtime_error)
+            break;
+
         iterations++;
 
         if (iterations >= MAX_LOOP_ITERATIONS)
@@ -2265,11 +2359,168 @@ static void execute_statement(Statement *statement)
                             break;
                         }
 
-                        set_variable(
-                            statement->name,
-                            value_number(number),
-                            1
-                        );
+                        /*
+                         * Indexed set input:
+                         *
+                         *     input = numbers(1)
+                         *     input = numbers(i)
+                         *
+                         * The parser stores the destination in
+                         * statement->target. A normal input such as
+                         * "input = age" has no target and keeps the
+                         * existing variable behavior.
+                         */
+                        if (
+                            statement->target &&
+                            statement->target->type == EXPR_CALL
+                        )
+                        {
+                            Expr *target =
+                                statement->target;
+
+                            Variable *set_variable =
+                                find_variable(
+                                    target->call_name
+                                );
+
+                            if (
+                                !set_variable ||
+                                set_variable->value.type != VALUE_SET
+                            )
+                            {
+                                char message[256];
+
+                                snprintf(
+                                    message,
+                                    sizeof(message),
+                                    "'%s' is not a set",
+                                    target->call_name
+                                );
+
+                                set_runtime_error(
+                                    statement->target,
+                                    message
+                                );
+
+                                break;
+                            }
+
+                            if (
+                                target->call_argument_count != 1
+                            )
+                            {
+                                set_runtime_error(
+                                    statement->target,
+                                    "set input requires exactly 1 index"
+                                );
+
+                                break;
+                            }
+
+                            Value index_value =
+                                evaluate(
+                                    target->call_arguments[0]
+                                );
+
+                            if (
+                                index_value.type !=
+                                VALUE_NUMBER
+                            )
+                            {
+                                set_runtime_error(
+                                    statement->target,
+                                    "set index requires a number"
+                                );
+
+                                value_free(
+                                    &index_value
+                                );
+
+                                break;
+                            }
+
+                            int index =
+                                (int)index_value.number;
+
+                            if (
+                                index_value.number !=
+                                    (double)index ||
+                                index < 1
+                            )
+                            {
+                                set_runtime_error(
+                                    statement->target,
+                                    "set index must be a positive integer"
+                                );
+
+                                value_free(
+                                    &index_value
+                                );
+
+                                break;
+                            }
+
+                            /*
+                             * Existing element -> replace it.
+                             * Next element -> append it.
+                             * Any larger index would create a hole,
+                             * so reject it.
+                             */
+                            if (
+                                index <=
+                                set_variable->value.set.count
+                            )
+                            {
+                                Value *item =
+                                    value_set_get(
+                                        &set_variable->value,
+                                        index
+                                    );
+
+                                value_free(item);
+
+                                *item =
+                                    value_number(number);
+                            }
+                            else if (
+                                index ==
+                                set_variable->value.set.count + 1
+                            )
+                            {
+                                value_set_add(
+                                    &set_variable->value,
+                                    value_number(number)
+                                );
+                            }
+                            else
+                            {
+                                char message[256];
+
+                                snprintf(
+                                    message,
+                                    sizeof(message),
+                                    "set index %d out of range",
+                                    index
+                                );
+
+                                set_runtime_error(
+                                    statement->target,
+                                    message
+                                );
+                            }
+
+                            value_free(
+                                &index_value
+                            );
+                        }
+                        else
+                        {
+                            set_variable(
+                                statement->name,
+                                value_number(number),
+                                1
+                            );
+                        }
                     }
                     else
                     {

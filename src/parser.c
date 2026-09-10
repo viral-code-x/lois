@@ -1204,9 +1204,16 @@ static Statement *parse_input_statement(void)
     {
         advance();
 
+        /*
+         * input = number(1)
+         * input = number(i)
+         *
+         * Keep the whole destination as an expression so
+         * indexed set input can be handled at runtime.
+         */
         if (current()->type != TOKEN_WORD)
         {
-            parser_error("LOIS: expected variable name after 'input ='");
+            parser_error("LOIS: expected variable name or set target after 'input ='");
             return statement;
         }
 
@@ -1216,7 +1223,19 @@ static Statement *parse_input_statement(void)
         statement->extra =
             strdup("num");
 
-        advance();
+        /*
+         * If this is a call such as number(1), parse it as
+         * the input target.
+         */
+        if (peek(1)->type == TOKEN_LPAREN)
+        {
+            statement->target =
+                parse_primary();
+        }
+        else
+        {
+            advance();
+        }
     }
     else
     {
@@ -1255,6 +1274,57 @@ static Statement *parse_input_statement(void)
 
 static Statement *parse_assignment_statement(void)
 {
+    /*
+     * Post-increment:
+     *
+     *     i++
+     *
+     * Treat it as:
+     *
+     *     i = i + 1
+     *
+     * so it follows the normal numeric assignment path.
+     */
+    if (
+        current()->type == TOKEN_WORD &&
+        peek(1)->type == TOKEN_PLUS &&
+        peek(2)->type == TOKEN_PLUS
+    )
+    {
+        Statement *statement =
+            new_statement(STMT_ASSIGN);
+
+        statement->name =
+            strdup(current()->text);
+
+        statement->extra =
+            strdup("num");
+
+        Expr *left =
+            new_expr(EXPR_VARIABLE);
+
+        left->text =
+            strdup(current()->text);
+
+        advance(); /* variable */
+        advance(); /* first + */
+        advance(); /* second + */
+
+        Expr *one =
+            new_expr(EXPR_NUMBER);
+
+        one->number = 1;
+
+        statement->expression =
+            make_binary(
+                left,
+                one,
+                TOKEN_PLUS
+            );
+
+        return statement;
+    }
+
     if (current()->type != TOKEN_WORD)
         return NULL;
 
@@ -2158,57 +2228,37 @@ static Statement *parse_while_statement(void)
     while (1)
     {
         /*
-         * Move to the next logical line.
+         * The current statement ended at a newline.
+         * Move to the next line.
          */
-        skip_newlines();
+        if (current()->type == TOKEN_NEWLINE)
+            advance();
 
         /*
-         * EOF means the loop body is finished.
+         * Only a line beginning with "then" continues
+         * the while body.
+         *
+         * Any other statement belongs to the outer level.
          */
-        if (current()->type == TOKEN_EOF)
+        if (!word_is("then"))
             break;
 
-        /*
-         * Stop before another top-level construct.
-         *
-         * Function definitions, conditionals, loops,
-         * repeat statements, etc. should remain top-level.
-         */
-        if (
-            word_is("if") ||
-            word_is("while") ||
-            word_is("repeat") ||
-            word_is("function") ||
-            word_is("return")
-        )
-        {
-            break;
-        }
+        advance();
 
         /*
-         * Parse another normal statement.
-         *
-         * This allows:
-         *
-         *     count = count + 1
-         *
-         * after the "then" statement.
+         * Parse the next loop-body statement.
          */
         Statement *next_body =
-            parse_statement();
+            parse_single_body();
 
         if (!next_body)
             break;
 
-        /*
-         * Attach it to the loop body chain.
-         */
         body_tail->next = next_body;
-
         body_tail = next_body;
 
         /*
-         * Consume the rest of that logical line.
+         * Consume the rest of this logical line.
          */
         while (
             current()->type != TOKEN_NEWLINE &&
@@ -2217,6 +2267,9 @@ static Statement *parse_while_statement(void)
         {
             advance();
         }
+
+        if (current()->type == TOKEN_EOF)
+            break;
     }
 
     return statement;
@@ -2599,6 +2652,12 @@ static void free_expr(Expr *expr)
     free_expr(expr->left);
     free_expr(expr->right);
 
+    if (expr->type == EXPR_INDEX)
+    {
+        free_expr(expr->index_target);
+        free_expr(expr->index_expression);
+    }
+
     if (expr->type == EXPR_CALL)
     {
         free(expr->call_name);
@@ -2632,6 +2691,7 @@ void parser_free(Statement *statement)
         free_expr(statement->expression);
         free_expr(statement->condition);
         free_expr(statement->count);
+        free_expr(statement->target);
 
         parser_free(statement->body);
         parser_free(statement->else_body);
