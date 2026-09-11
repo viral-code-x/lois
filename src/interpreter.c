@@ -37,6 +37,7 @@ static void set_runtime_error(Expr *expr, const char *message)
 
 #include <stdlib.h>
 #include <string.h>
+
 #include <strings.h>
 
 #define MAX_VARIABLES 256
