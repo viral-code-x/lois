@@ -264,6 +264,45 @@ static Expr *parse_postfix(void)
 static Expr *parse_expression(int minimum_precedence);
 static Expr *parse_postfix(void);
 static Statement *parse_statement(void);
+static Statement *new_statement(StatementType type);
+static Statement *parse_add_statement(void)
+{
+    if (!word_is("add"))
+        return NULL;
+
+    advance();
+
+    if (current()->type != TOKEN_WORD)
+    {
+        parser_error(
+            "LOIS: expected module name after 'add'"
+        );
+        return NULL;
+    }
+
+    Statement *statement =
+        new_statement(STMT_ADD);
+
+    statement->name =
+        strdup(current()->text);
+
+    advance();
+
+    if (
+        current()->type != TOKEN_NEWLINE &&
+        current()->type != TOKEN_EOF
+    )
+    {
+        parser_error(
+            "LOIS: unexpected text after module name"
+        );
+        parser_free(statement);
+        return NULL;
+    }
+
+    return statement;
+}
+
 
 
 /*
@@ -1849,6 +1888,9 @@ static Statement *parse_single_body(void)
 {
     skip_newlines();
 
+    if (word_is("add"))
+        return parse_add_statement();
+
     if (word_is("output"))
         return parse_output_statement();
 
@@ -2434,6 +2476,9 @@ static Statement *parse_statement(void)
 
     if (current()->type == TOKEN_EOF)
         return NULL;
+
+    if (word_is("add"))
+        return parse_add_statement();
 
     if (word_is("output"))
         return parse_output_statement();

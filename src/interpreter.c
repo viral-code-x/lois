@@ -1934,6 +1934,28 @@ static void execute_statement(Statement *statement)
     {
         switch (statement->type)
         {
+            case STMT_ADD:
+            {
+                if (
+                    strcmp(statement->name, "game") != 0 &&
+                    strcmp(statement->name, "math") != 0
+                )
+                {
+                    char message[256];
+
+                    snprintf(
+                        message,
+                        sizeof(message),
+                        "LOIS: unknown module '%s'",
+                        statement->name
+                    );
+
+                    set_runtime_error(NULL, message);
+                }
+
+                break;
+            }
+
             case STMT_FUNCTION:
             {
                 set_function(

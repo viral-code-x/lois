@@ -48,6 +48,7 @@ struct Expr
 
 typedef enum
 {
+    STMT_ADD,
     STMT_ASSIGN,
     STMT_INPUT,
     STMT_OUTPUT,
