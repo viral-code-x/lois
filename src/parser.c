@@ -9,6 +9,7 @@
 #include <math.h>
 
 static Token *current(void);
+static void free_expr(Expr *expr);
 
 static int parser_error_count = 0;
 
@@ -34,6 +35,20 @@ static void parser_error(const char *format, ...)
 
 static TokenList *tokens;
 static int position;
+
+/* Parameters currently being parsed in an equation-style function. */
+static char **active_function_parameters;
+static int active_function_parameter_count;
+
+static int is_active_function_parameter(const char *word)
+{
+    for (int i = 0; i < active_function_parameter_count; i++) {
+        if (strcmp(active_function_parameters[i], word) == 0)
+            return 1;
+    }
+
+    return 0;
+}
 
 static Token *current(void)
 {
@@ -173,19 +188,24 @@ static Expr *make_call(
     int argument_count
 )
 {
-    Expr *expr =
-        new_expr(EXPR_CALL);
+    Expr *expr = new_expr(EXPR_CALL);
 
-    expr->call_name =
-        strdup(name);
+    expr->call_name = strdup(name);
+    expr->call_argument_count = argument_count;
 
-    expr->call_argument_count =
-        argument_count;
-
-    for (int i = 0; i < argument_count; i++)
+    if (argument_count > 0)
     {
-        expr->call_arguments[i] =
-            arguments[i];
+        expr->call_arguments =
+            malloc((size_t)argument_count * sizeof(Expr *));
+
+        if (!expr->call_arguments)
+        {
+            fprintf(stderr, "LOIS: out of memory\\n");
+            exit(1);
+        }
+
+        for (int i = 0; i < argument_count; i++)
+            expr->call_arguments[i] = arguments[i];
     }
 
     return expr;
@@ -640,45 +660,58 @@ static Expr *parse_primary(void)
             advance(); /* function name */
             advance(); /* '(' */
 
-            Expr *arguments[16];
+            Expr **arguments = NULL;
             int argument_count = 0;
+            int argument_capacity = 0;
 
             /*
-             * Empty call:
-             *
-             *     greet()
+             * Parse a dynamically sized argument list.
              */
             if (current()->type != TOKEN_RPAREN)
             {
                 while (1)
                 {
-                    if (argument_count >= 16)
-                    {
-                        fprintf(
-                            stderr,
-                            "LOIS: too many function arguments\\n"
-                        );
-
-                        free(name);
-                        return NULL;
-                    }
-
-                    Expr *argument =
-                        parse_expression(0);
+                    Expr *argument = parse_expression(0);
 
                     if (!argument)
                     {
+                        for (int i = 0; i < argument_count; i++)
+                            free_expr(arguments[i]);
+
+                        free(arguments);
                         free(name);
                         return NULL;
                     }
 
-                    arguments[argument_count++] =
-                        argument;
+                    if (argument_count == argument_capacity)
+                    {
+                        int new_capacity =
+                            argument_capacity == 0
+                                ? 4
+                                : argument_capacity * 2;
+
+                        Expr **new_arguments =
+                            realloc(
+                                arguments,
+                                (size_t)new_capacity * sizeof(Expr *)
+                            );
+
+                        if (!new_arguments)
+                        {
+                            fprintf(stderr, "LOIS: out of memory\\n");
+                            exit(1);
+                        }
+
+                        arguments = new_arguments;
+                        argument_capacity = new_capacity;
+                    }
+
+                    arguments[argument_count++] = argument;
 
                     if (current()->type != TOKEN_COMMA)
                         break;
 
-                    advance(); /* comma */
+                    advance();
 
                     if (current()->type == TOKEN_RPAREN)
                     {
@@ -687,6 +720,10 @@ static Expr *parse_primary(void)
                             "LOIS: expected expression after ','\\n"
                         );
 
+                        for (int i = 0; i < argument_count; i++)
+                            free_expr(arguments[i]);
+
+                        free(arguments);
                         free(name);
                         return NULL;
                     }
@@ -740,7 +777,8 @@ static Expr *parse_primary(void)
                 split--;
             }
 
-            if (split > 0 &&
+            if (!is_active_function_parameter(word) &&
+                split > 0 &&
                 split < length &&
                 word[split] != '0')
             {
@@ -1491,249 +1529,6 @@ static Statement *parse_assignment_statement(void)
 
 
 
-/*
- * Collect implicit function parameters from a function expression.
- *
- * LOIS function syntax:
- *
- *     add is function of x + y
- *     square is function of x * x
- *
- * Variables appearing in the expression become parameters.
- *
- * Function names used in calls are NOT parameters:
- *
- *     add is function of square(x) + y
- *
- * produces parameters:
- *
- *     x, y
- */
-static int function_has_parameter(
-    Statement *statement,
-    const char *name
-)
-{
-    for (int i = 0;
-         i < statement->parameter_count;
-         i++)
-    {
-        if (strcmp(statement->parameters[i], name) == 0)
-            return 1;
-    }
-
-    return 0;
-}
-
-static void collect_function_parameters(
-    Statement *statement,
-    Expr *expr
-)
-{
-    if (!expr)
-        return;
-
-    switch (expr->type)
-    {
-        case EXPR_VARIABLE:
-            if (
-                expr->text &&
-                !function_has_parameter(
-                    statement,
-                    expr->text
-                ) &&
-                statement->parameter_count < 16
-            )
-            {
-                statement->parameters[
-                    statement->parameter_count++
-                ] = strdup(expr->text);
-            }
-            break;
-
-        case EXPR_INDEX:
-            /*
-             * numbers1 means the variable "numbers"
-             * is required by the function.
-             */
-            collect_function_parameters(
-                statement,
-                expr->index_target
-            );
-            break;
-
-        case EXPR_CALL:
-            /*
-             * The call name itself is a function name,
-             * not a parameter.
-             *
-             * Its arguments may contain parameters.
-             */
-            for (int i = 0;
-                 i < expr->call_argument_count;
-                 i++)
-            {
-                collect_function_parameters(
-                    statement,
-                    expr->call_arguments[i]
-                );
-            }
-            break;
-
-        case EXPR_UNARY:
-            collect_function_parameters(
-                statement,
-                expr->left
-            );
-            break;
-
-        case EXPR_BINARY:
-            collect_function_parameters(
-                statement,
-                expr->left
-            );
-
-            collect_function_parameters(
-                statement,
-                expr->right
-            );
-            break;
-
-        case EXPR_CONDITIONAL:
-            collect_function_parameters(
-                statement,
-                expr->condition
-            );
-
-            collect_function_parameters(
-                statement,
-                expr->left
-            );
-
-            collect_function_parameters(
-                statement,
-                expr->right
-            );
-            break;
-
-        case EXPR_SET:
-            /*
-             * Set elements are chained through ->right.
-             */
-            collect_function_parameters(
-                statement,
-                expr->left
-            );
-            break;
-
-        default:
-            /*
-             * Literals, numbers, booleans, etc.
-             * contain no parameters.
-             */
-            break;
-    }
-}
-
-static Statement *parse_function_statement(void)
-{
-    /*
-     * LOIS function definition:
-     *
-     *     add is function of x + y
-     *     square is function of x * x
-     *     greet is function of "hello"
-     *
-     * The word "of" separates the function declaration
-     * from its body expression.
-     *
-     * Function calls are always parenthesized:
-     *
-     *     add(3, 6)
-     *     square(5)
-     *     greet()
-     */
-
-    if (current()->type != TOKEN_WORD)
-        return NULL;
-
-    /*
-     * Expected beginning:
-     *
-     *     name is function
-     */
-    if (
-        !peek_word_is(1, "is") ||
-        !peek_word_is(2, "function")
-    )
-    {
-        return NULL;
-    }
-
-    char *name =
-        strdup(current()->text);
-
-    advance(); /* name */
-    advance(); /* is */
-    advance(); /* function */
-
-    /*
-     * "of" separates the declaration from the
-     * function expression.
-     */
-    if (word_is("of"))
-        advance();
-
-    Statement *statement =
-        new_statement(STMT_FUNCTION);
-
-    statement->name = name;
-
-    /*
-     * Parameters are represented by words appearing
-     * before the function expression.
-     *
-     * Example:
-     *
-     *     add is function x y of x + y
-     *
-     * However, the preferred LOIS form is:
-     *
-     *     add is function of x + y
-     *
-     * In that form variables used by the expression
-     * are resolved as function arguments at runtime.
-     *
-     * For now, do not greedily consume words here because
-     * doing so would destroy the expression.
-     */
-
-    if (
-        current()->type != TOKEN_NEWLINE &&
-        current()->type != TOKEN_EOF
-    )
-    {
-        statement->expression =
-            parse_expression(0);
-
-        /*
-         * Parameters are implicit in LOIS.
-         *
-         *     add is function of x + y
-         *
-         * automatically means:
-         *
-         *     add(x, y)
-         */
-        collect_function_parameters(
-            statement,
-            statement->expression
-        );
-    }
-
-    return statement;
-}
-
 static Statement *parse_return_statement(void)
 {
     /*
@@ -1828,15 +1623,6 @@ static Statement *parse_function_call_statement(void)
 
     while (current()->type != TOKEN_EOF)
     {
-        if (statement->argument_count >= 16)
-        {
-            parser_error(
-                "LOIS: too many function arguments"
-            );
-            parser_free(statement);
-            return NULL;
-        }
-
         Expr *argument =
             parse_expression(0);
 
@@ -1850,9 +1636,17 @@ static Statement *parse_function_call_statement(void)
             return NULL;
         }
 
-        statement->arguments[
-            statement->argument_count++
-        ] = argument;
+        Expr **items = realloc(
+            statement->arguments,
+            (size_t)(statement->argument_count + 1) * sizeof(Expr *)
+        );
+        if (!items) {
+            free_expr(argument);
+            fprintf(stderr, "LOIS: out of memory\n");
+            exit(1);
+        }
+        statement->arguments = items;
+        statement->arguments[statement->argument_count++] = argument;
 
         if (current()->type == TOKEN_RPAREN)
         {
@@ -2470,12 +2264,111 @@ static Statement *parse_repeat_statement(void)
     return statement;
 }
 
+
+/* Equation-style definitions: Square(x) = x * x */
+static Statement *parse_explicit_function_statement(void)
+{
+    if (current()->type != TOKEN_WORD ||
+        peek(1)->type != TOKEN_LPAREN)
+        return NULL;
+
+    int i = position + 2;
+    if (i >= tokens->count)
+        return NULL;
+
+    if (tokens->tokens[i].type != TOKEN_RPAREN) {
+        while (i < tokens->count) {
+            if (tokens->tokens[i].type != TOKEN_WORD)
+                return NULL;
+            i++;
+            if (i >= tokens->count)
+                return NULL;
+            if (tokens->tokens[i].type == TOKEN_RPAREN)
+                break;
+            if (tokens->tokens[i].type != TOKEN_COMMA)
+                return NULL;
+            i++;
+        }
+    }
+
+    if (i >= tokens->count ||
+        tokens->tokens[i].type != TOKEN_RPAREN ||
+        i + 1 >= tokens->count ||
+        tokens->tokens[i + 1].type != TOKEN_ASSIGN)
+        return NULL;
+
+    Statement *s = new_statement(STMT_FUNCTION);
+    s->name = strdup(current()->text);
+    advance();
+    advance();
+
+    while (current()->type != TOKEN_RPAREN) {
+        if (current()->type != TOKEN_WORD) {
+            parser_error("LOIS: expected parameter name");
+            parser_free(s);
+            return NULL;
+        }
+
+        for (int j = 0; j < s->parameter_count; j++) {
+            if (strcmp(s->parameters[j], current()->text) == 0) {
+                parser_error("LOIS: duplicate function parameter");
+                parser_free(s);
+                return NULL;
+            }
+        }
+
+        char **items = realloc(
+            s->parameters,
+            (size_t)(s->parameter_count + 1) * sizeof(char *)
+        );
+        if (!items) {
+            fprintf(stderr, "LOIS: out of memory\n");
+            exit(1);
+        }
+        s->parameters = items;
+        s->parameters[s->parameter_count++] = strdup(current()->text);
+        advance();
+
+        if (current()->type == TOKEN_COMMA)
+            advance();
+        else if (current()->type != TOKEN_RPAREN) {
+            parser_error("LOIS: expected ',' or ')' in parameters");
+            parser_free(s);
+            return NULL;
+        }
+    }
+
+    advance();
+    advance();
+
+    active_function_parameters = s->parameters;
+    active_function_parameter_count = s->parameter_count;
+
+    s->expression = parse_expression(0);
+
+    active_function_parameters = NULL;
+    active_function_parameter_count = 0;
+
+    if (!s->expression) {
+        parser_error("LOIS: expected expression after '='");
+        parser_free(s);
+        return NULL;
+    }
+
+    return s;
+}
+
 static Statement *parse_statement(void)
 {
     skip_newlines();
 
     if (current()->type == TOKEN_EOF)
         return NULL;
+
+    Statement *equation_function =
+        parse_explicit_function_statement();
+    if (equation_function)
+        return equation_function;
 
     if (word_is("add"))
         return parse_add_statement();
@@ -2510,27 +2403,7 @@ static Statement *parse_statement(void)
     )
         return parse_function_call_statement();
 
-    if (
-        current()->type == TOKEN_WORD &&
-        (
-            peek_word_is(1, "function") ||
-            (
-                peek_word_is(1, "is") &&
-                peek_word_is(2, "function")
-            ) ||
-            (
-                peek(1)->type == TOKEN_ASSIGN &&
-                peek_word_is(2, "function")
-            )
-        )
-    )
-    {
-        Statement *function =
-            parse_function_statement();
 
-        if (function)
-            return function;
-    }
 
     if (current()->type == TOKEN_WORD)
         return parse_assignment_statement();
@@ -2614,10 +2487,11 @@ static void free_expr(Expr *expr)
     if (expr->type == EXPR_CALL)
     {
         free(expr->call_name);
+
         for (int i = 0; i < expr->call_argument_count; i++)
-        {
             free_expr(expr->call_arguments[i]);
-        }
+
+        free(expr->call_arguments);
     }
 
     free(expr->text);
@@ -2637,9 +2511,11 @@ void parser_free(Statement *statement)
 
         for (int i = 0; i < statement->parameter_count; i++)
             free(statement->parameters[i]);
+        free(statement->parameters);
 
         for (int i = 0; i < statement->argument_count; i++)
             free_expr(statement->arguments[i]);
+        free(statement->arguments);
 
         free_expr(statement->expression);
         free_expr(statement->condition);

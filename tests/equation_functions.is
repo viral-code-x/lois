@@ -1,0 +1,14 @@
+Square(x) = x * x
+Combine(x, x1, x2) = x + x1 + x2
+DoubleSquare(x) = Square(x) * 2
+
+answer = Square(5)
+total = Combine(2, 3, 4)
+nested = DoubleSquare(3)
+ordinary = 13
+
+output = answer
+output = total
+output = nested
+output = ordinary
+output = root(25)

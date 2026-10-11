@@ -1,0 +1,4 @@
+AddTwo(x, x1) = x + x1
+valid = AddTwo(3, 4)
+wrong_count = AddTwo(3)
+output = valid

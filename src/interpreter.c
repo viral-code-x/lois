@@ -57,7 +57,7 @@ typedef struct
 {
     char *name;
 
-    char *parameters[16];
+    char **parameters;
     int parameter_count;
 
     Expr *expression;
@@ -98,18 +98,21 @@ static void set_function(
     {
         for (int i = 0; i < existing->parameter_count; i++)
             free(existing->parameters[i]);
+        free(existing->parameters);
+        existing->parameters = NULL;
 
-        existing->parameter_count =
-            parameter_count;
-
-        for (int i = 0; i < parameter_count; i++)
-        {
-            existing->parameters[i] =
-                strdup(parameters[i]);
+        if (parameter_count > 0) {
+            existing->parameters = calloc((size_t)parameter_count, sizeof(char *));
+            if (!existing->parameters) {
+                fprintf(stderr, "LOIS: out of memory\n");
+                exit(1);
+            }
+            for (int i = 0; i < parameter_count; i++)
+                existing->parameters[i] = strdup(parameters[i]);
         }
 
-        existing->expression =
-            expression;
+        existing->parameter_count = parameter_count;
+        existing->expression = expression;
 
         return;
     }
@@ -127,13 +130,18 @@ static void set_function(
     functions[function_count].name =
         strdup(name);
 
-    functions[function_count].parameter_count =
-        parameter_count;
+    functions[function_count].parameter_count = parameter_count;
+    functions[function_count].parameters = NULL;
 
-    for (int i = 0; i < parameter_count; i++)
-    {
-        functions[function_count].parameters[i] =
-            strdup(parameters[i]);
+    if (parameter_count > 0) {
+        functions[function_count].parameters =
+            calloc((size_t)parameter_count, sizeof(char *));
+        if (!functions[function_count].parameters) {
+            fprintf(stderr, "LOIS: out of memory\n");
+            exit(1);
+        }
+        for (int i = 0; i < parameter_count; i++)
+            functions[function_count].parameters[i] = strdup(parameters[i]);
     }
 
     functions[function_count].expression =
@@ -150,6 +158,8 @@ static void free_functions(void)
 
         for (int j = 0; j < functions[i].parameter_count; j++)
             free(functions[i].parameters[j]);
+        free(functions[i].parameters);
+        functions[i].parameters = NULL;
     }
 
     function_count = 0;
@@ -477,7 +487,13 @@ static Value evaluate(Expr *expr)
              * Evaluate arguments BEFORE installing
              * the function parameters.
              */
-            Value arguments[16];
+            Value *arguments = expr->call_argument_count
+                ? calloc((size_t)expr->call_argument_count, sizeof(Value))
+                : NULL;
+            if (expr->call_argument_count && !arguments) {
+                fprintf(stderr, "LOIS: out of memory\n");
+                exit(1);
+            }
 
             for (int i = 0;
                  i < expr->call_argument_count;
@@ -492,7 +508,7 @@ static Value evaluate(Expr *expr)
                 {
                     for (int j = 0; j < i; j++)
                         value_free(&arguments[j]);
-
+                    free(arguments);
                     return value_none();
                 }
             }
@@ -501,8 +517,14 @@ static Value evaluate(Expr *expr)
              * Save variables which have the same names
              * as the function parameters.
              */
-            Variable saved[16];
+            Variable *saved = function->parameter_count
+                ? calloc((size_t)function->parameter_count, sizeof(Variable))
+                : NULL;
             int saved_count = 0;
+            if (function->parameter_count && !saved) {
+                fprintf(stderr, "LOIS: out of memory\n");
+                exit(1);
+            }
 
             for (int i = 0;
                  i < function->parameter_count;
@@ -601,13 +623,11 @@ static Value evaluate(Expr *expr)
                 free(saved[i].name);
             }
 
-            for (int i = 0;
-                 i < expr->call_argument_count;
-                 i++)
-            {
+            for (int i = 0; i < expr->call_argument_count; i++)
                 value_free(&arguments[i]);
-            }
 
+            free(arguments);
+            free(saved);
             return result;
         }
 
@@ -2020,7 +2040,13 @@ static void execute_statement(Statement *statement)
                  * Evaluate all arguments BEFORE replacing
                  * the parameter variables.
                  */
-                Value arguments[16];
+                Value *arguments = statement->argument_count
+                    ? calloc((size_t)statement->argument_count, sizeof(Value))
+                    : NULL;
+                if (statement->argument_count && !arguments) {
+                    fprintf(stderr, "LOIS: out of memory\n");
+                    exit(1);
+                }
 
                 for (int i = 0;
                      i < statement->argument_count;
@@ -2035,13 +2061,15 @@ static void execute_statement(Statement *statement)
                     {
                         for (int j = 0; j < i; j++)
                             value_free(&arguments[j]);
-
+                        free(arguments);
+                        arguments = NULL;
                         break;
                     }
                 }
 
                 if (interpreter_had_error())
                 {
+                    free(arguments);
                     break;
                 }
 
@@ -2049,8 +2077,14 @@ static void execute_statement(Statement *statement)
                  * Save existing variables with the same
                  * names as parameters.
                  */
-                Variable saved[16];
+                Variable *saved = function->parameter_count
+                    ? calloc((size_t)function->parameter_count, sizeof(Variable))
+                    : NULL;
                 int saved_count = 0;
+                if (function->parameter_count && !saved) {
+                    fprintf(stderr, "LOIS: out of memory\n");
+                    exit(1);
+                }
 
                 for (int i = 0;
                      i < function->parameter_count;

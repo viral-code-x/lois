@@ -37,7 +37,7 @@ struct Expr
     Expr *condition;
 
     char *call_name;
-    Expr *call_arguments[16];
+    Expr **call_arguments;
     int call_argument_count;
 
     /* Set indexing: numbers1, numbers2, ... and numbers(1), numbers(i) */
@@ -73,10 +73,10 @@ struct Statement
     /* for-loop variable */
     char *loop_variable;
 
-    char *parameters[16];
+    char **parameters;
     int parameter_count;
 
-    Expr *arguments[16];
+    Expr **arguments;
     int argument_count;
 
     Expr *expression;
