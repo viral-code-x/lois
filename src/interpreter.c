@@ -14,6 +14,15 @@
 
 static int runtime_error = 0;
 
+typedef enum
+{
+    LOOP_CONTROL_NONE,
+    LOOP_CONTROL_STOP,
+    LOOP_CONTROL_SKIP
+} LoopControl;
+
+static LoopControl loop_control = LOOP_CONTROL_NONE;
+
 int interpreter_had_error(void)
 {
     return runtime_error;
@@ -1722,98 +1731,122 @@ static void execute_for(Statement *statement)
 {
     if (
         !statement ||
-        !statement->condition ||
+        !statement->start ||
+        !statement->finish ||
+        !statement->step_statement ||
+        !statement->step_statement->expression ||
         !statement->loop_variable
     )
         return;
 
-    /*
-     * A LOIS for loop starts at 1.
-     *
-     *     for x<=10
-     *
-     * means:
-     *
-     *     x = 1
-     *     while x <= 10
-     *         ...
-     *         x = x + 1
-     */
+    Value start_value = evaluate(statement->start);
+    Value finish_value = evaluate(statement->finish);
+
+    if (
+        start_value.type != VALUE_NUMBER ||
+        finish_value.type != VALUE_NUMBER
+    )
+    {
+        fprintf(stderr, "LOIS: for-loop start and finish must be numbers\n");
+        value_free(&start_value);
+        value_free(&finish_value);
+        return;
+    }
+
+    double finish = finish_value.number;
+
     set_variable(
         statement->loop_variable,
-        value_number(1),
+        value_copy(&start_value),
         1
     );
 
-    unsigned long long iterations = 0;
+    value_free(&start_value);
+    value_free(&finish_value);
 
-    const unsigned long long MAX_LOOP_ITERATIONS =
-        1000000ULL;
+    Variable *variable = find_variable(statement->loop_variable);
+
+    if (!variable || variable->value.type != VALUE_NUMBER)
+        return;
+
+    /*
+     * Determine the direction from the value produced by
+     * the step expression at the initial loop value.
+     */
+    Value next_value = evaluate(statement->step_statement->expression);
+
+    if (next_value.type != VALUE_NUMBER)
+    {
+        fprintf(stderr, "LOIS: for-loop step must produce a number\n");
+        value_free(&next_value);
+        return;
+    }
+
+    double initial = variable->value.number;
+    double proposed = next_value.number;
+    value_free(&next_value);
+
+    if (proposed == initial)
+    {
+        fprintf(stderr, "LOIS: for-loop step must change the loop variable\n");
+        return;
+    }
+
+    int ascending = proposed > initial;
+
+    unsigned long long iterations = 0;
+    const unsigned long long MAX_LOOP_ITERATIONS = 1000000ULL;
 
     while (1)
     {
-        Value condition =
-            evaluate(statement->condition);
+        variable = find_variable(statement->loop_variable);
 
-        int true_value =
-            truthy(&condition);
-
-        value_free(&condition);
-
-        if (!true_value)
-            break;
-
-        /*
-         * Execute the complete nested body.
-         *
-         * This is what allows:
-         *
-         *     for x<=10
-         *     then for y<=10
-         *     then output is x*y
-         */
-        execute_statement(
-            statement->body
-        );
-
-        /*
-         * Increment the loop variable.
-         */
-        Variable *variable =
-            find_variable(
-                statement->loop_variable
-            );
-
-        if (
-            !variable ||
-            variable->value.type != VALUE_NUMBER
-        )
+        if (!variable || variable->value.type != VALUE_NUMBER)
         {
             fprintf(
                 stderr,
                 "LOIS: for loop variable '%s' must remain a number\n",
                 statement->loop_variable
             );
-
             break;
         }
 
-        variable->value.number += 1;
+        double current_value = variable->value.number;
+
+        if (
+            (ascending && current_value > finish) ||
+            (!ascending && current_value < finish)
+        )
+            break;
+
+        execute_statement(statement->body);
+
+        if (runtime_error)
+            break;
+
+        if (loop_control == LOOP_CONTROL_STOP)
+        {
+            loop_control = LOOP_CONTROL_NONE;
+            break;
+        }
+
+        if (loop_control == LOOP_CONTROL_SKIP)
+            loop_control = LOOP_CONTROL_NONE;
+
+        execute_statement(statement->step_statement);
+
+        if (runtime_error)
+            break;
 
         iterations++;
 
         if (iterations >= MAX_LOOP_ITERATIONS)
         {
-            fprintf(
-                stderr,
-                "LOIS: for loop exceeded maximum iteration limit\n"
-            );
-
+            fprintf(stderr, "LOIS: for loop exceeded maximum iteration limit\n");
             break;
         }
     }
 }
-
 
 
 static void execute_repeat(Statement *statement)
@@ -1849,6 +1882,18 @@ static void execute_repeat(Statement *statement)
     for (int i = 0; i < repetitions; i++)
     {
         execute_statement(statement->body);
+
+        if (runtime_error)
+            break;
+
+        if (loop_control == LOOP_CONTROL_STOP)
+        {
+            loop_control = LOOP_CONTROL_NONE;
+            break;
+        }
+
+        if (loop_control == LOOP_CONTROL_SKIP)
+            loop_control = LOOP_CONTROL_NONE;
     }
 }
 
@@ -1924,6 +1969,15 @@ static void execute_while(Statement *statement)
         execute_statement(
             statement->body
         );
+
+        if (loop_control == LOOP_CONTROL_STOP)
+        {
+            loop_control = LOOP_CONTROL_NONE;
+            break;
+        }
+
+        if (loop_control == LOOP_CONTROL_SKIP)
+            loop_control = LOOP_CONTROL_NONE;
 
         /*
          * A runtime error inside the loop body must stop
@@ -2629,7 +2683,18 @@ static void execute_statement(Statement *statement)
             case STMT_FOR:
                 execute_for(statement);
                 break;
+
+            case STMT_STOP:
+                loop_control = LOOP_CONTROL_STOP;
+                break;
+
+            case STMT_SKIP:
+                loop_control = LOOP_CONTROL_SKIP;
+                break;
         }
+
+        if (runtime_error || loop_control != LOOP_CONTROL_NONE)
+            break;
 
         statement =
             statement->next;
@@ -2639,6 +2704,7 @@ static void execute_statement(Statement *statement)
 void interpreter_run(Statement *program)
 {
     runtime_error = 0;
+    loop_control = LOOP_CONTROL_NONE;
     variable_count = 0;
 
     execute_statement(program);

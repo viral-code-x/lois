@@ -1,0 +1,11 @@
+note: ascending with postfix increment
+for x = 2, 5, x++
+then output = x
+
+note: ascending with explicit increment
+for y = 2, 5, y = y + 1
+then output = y
+
+note: descending range
+for z = 5, 1, z = z - 1
+then output = z

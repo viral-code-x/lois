@@ -1,0 +1,4 @@
+for x = 1, 5, x++
+then if x == 3
+then skip
+then output = x

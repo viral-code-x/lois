@@ -1678,23 +1678,18 @@ static Statement *parse_function_call_statement(void)
     return NULL;
 }
 
+static Statement *parse_loop_control_statement(StatementType type)
+{
+    advance();
+    return new_statement(type);
+}
+
+static Statement *parse_statement(void);
+
 static Statement *parse_single_body(void)
 {
     skip_newlines();
-
-    if (word_is("add"))
-        return parse_add_statement();
-
-    if (word_is("output"))
-        return parse_output_statement();
-
-    if (word_is("input"))
-        return parse_input_statement();
-
-    if (current()->type == TOKEN_WORD)
-        return parse_assignment_statement();
-
-    return NULL;
+    return parse_statement();
 }
 
 static Statement *parse_if_statement(void)
@@ -2003,12 +1998,15 @@ static Statement *parse_while_statement(void)
 
     statement->body = body;
 
-    while (
-        current()->type != TOKEN_NEWLINE &&
-        current()->type != TOKEN_EOF
-    )
+    if (!word_is("then"))
     {
-        advance();
+        while (
+            current()->type != TOKEN_NEWLINE &&
+            current()->type != TOKEN_EOF
+        )
+        {
+            advance();
+        }
     }
 
     Statement *body_tail = body;
@@ -2040,12 +2038,15 @@ static Statement *parse_while_statement(void)
         body_tail->next = next_body;
         body_tail = next_body;
 
-        while (
-            current()->type != TOKEN_NEWLINE &&
-            current()->type != TOKEN_EOF
-        )
+        if (!word_is("then"))
         {
-            advance();
+            while (
+                current()->type != TOKEN_NEWLINE &&
+                current()->type != TOKEN_EOF
+            )
+            {
+                advance();
+            }
         }
     }
 
@@ -2062,138 +2063,144 @@ static Statement *parse_for_statement(void)
 
     advance();
 
-    /*
-     * The loop variable must be a word.
-     *
-     *     for x<=10
-     *         ^
-     */
     if (current()->type != TOKEN_WORD)
     {
-        fprintf(
-            stderr,
-            "LOIS: expected loop variable after 'for'\n"
-        );
-
+        parser_error("LOIS: expected loop variable after 'for'");
         return NULL;
     }
 
-    char *loop_variable =
-        strdup(current()->text);
-
+    char *loop_variable = strdup(current()->text);
     advance();
 
-    /*
-     * Currently the simple for syntax is:
-     *
-     *     for x<=10
-     *
-     * We deliberately require <=.
-     */
-    if (current()->type != TOKEN_LESS_EQUAL)
+    if (current()->type != TOKEN_ASSIGN)
     {
-        fprintf(
-            stderr,
-            "LOIS: expected '<=' after for loop variable\n"
-        );
-
+        parser_error("LOIS: expected '=' after for loop variable");
         free(loop_variable);
         return NULL;
     }
 
     advance();
 
-    /*
-     * Parse only the limit expression.
-     */
-    Expr *limit =
-        parse_expression(0);
+    Statement *statement = new_statement(STMT_FOR);
+    statement->loop_variable = loop_variable;
 
-    if (!limit)
+    statement->start = parse_expression(0);
+
+    if (!statement->start || current()->type != TOKEN_COMMA)
     {
-        fprintf(
-            stderr,
-            "LOIS: expected limit after 'for %s<='\n",
-            loop_variable
-        );
-
-        free(loop_variable);
+        parser_error("LOIS: expected start expression followed by ',' in for loop");
+        parser_free(statement);
         return NULL;
     }
 
-    /*
-     * Build:
-     *
-     *     x <= limit
-     *
-     * as the normal condition expression.
-     */
-    Expr *variable =
-        new_expr(EXPR_VARIABLE);
+    advance();
 
-    variable->text =
-        strdup(loop_variable);
+    statement->finish = parse_expression(0);
 
-    Expr *condition =
-        make_binary(
-            variable,
-            limit,
-            TOKEN_LESS_EQUAL
-        );
+    if (!statement->finish || current()->type != TOKEN_COMMA)
+    {
+        parser_error("LOIS: expected finish expression followed by ',' in for loop");
+        parser_free(statement);
+        return NULL;
+    }
 
-    Statement *statement =
-        new_statement(STMT_FOR);
+    advance();
 
-    statement->loop_variable =
-        loop_variable;
+    statement->step_statement = parse_assignment_statement();
 
-    statement->condition =
-        condition;
+    if (
+        !statement->step_statement ||
+        !statement->step_statement->expression ||
+        !statement->step_statement->name ||
+        strcmp(
+            statement->step_statement->name,
+            statement->loop_variable
+        ) != 0
+    )
+    {
+        parser_error("LOIS: for-loop step must update its loop variable");
+        parser_free(statement);
+        return NULL;
+    }
 
-    /*
-     * "then" may be on the next line.
-     */
     skip_newlines();
 
     if (!word_is("then"))
     {
-        fprintf(
-            stderr,
-            "LOIS: expected 'then' after for condition\n"
-        );
-
+        parser_error("LOIS: expected 'then' after for-loop header");
         parser_free(statement);
         return NULL;
     }
 
     advance();
 
-    /*
-     * Exactly one statement is the body.
-     *
-     * This is what gives us clean nesting:
-     *
-     *     for x<=10
-     *     then for y<=10
-     *     then output is x*y
-     *
-     * Outer FOR
-     *   body -> Inner FOR
-     *              body -> OUTPUT
-     */
-    statement->body =
-        parse_statement();
+    Statement *body = parse_statement();
 
-    if (!statement->body)
+    if (!body)
     {
-        fprintf(
-            stderr,
-            "LOIS: expected statement after 'then' in for loop\n"
-        );
-
+        parser_error("LOIS: expected statement after 'then' in for loop");
         parser_free(statement);
         return NULL;
     }
+
+    statement->body = body;
+
+    if (!word_is("then"))
+    {
+        while (
+            current()->type != TOKEN_NEWLINE &&
+            current()->type != TOKEN_EOF
+        )
+        {
+            advance();
+        }
+    }
+
+    Statement *body_tail = body;
+
+    while (1)
+    {
+        if (current()->type == TOKEN_EOF)
+            break;
+
+        if (current()->type == TOKEN_NEWLINE)
+            advance();
+
+        /* A blank line ends the for-loop body. */
+        if (current()->type == TOKEN_NEWLINE)
+            break;
+
+        /* Only an explicit "then" continues the body. */
+        if (!word_is("then"))
+            break;
+
+        advance();
+
+        Statement *next_body = parse_statement();
+
+        if (!next_body)
+        {
+            parser_error("LOIS: expected statement after 'then' in for loop");
+            parser_free(statement);
+            return NULL;
+        }
+
+        body_tail->next = next_body;
+        body_tail = next_body;
+
+        if (!word_is("then"))
+        {
+            while (
+                current()->type != TOKEN_NEWLINE &&
+                current()->type != TOKEN_EOF
+            )
+            {
+                advance();
+            }
+        }
+    }
+
+    body_tail->next = NULL;
 
     return statement;
 }
@@ -2391,6 +2398,12 @@ static Statement *parse_statement(void)
     if (word_is("repeat"))
         return parse_repeat_statement();
 
+    if (word_is("stop"))
+        return parse_loop_control_statement(STMT_STOP);
+
+    if (word_is("skip"))
+        return parse_loop_control_statement(STMT_SKIP);
+
     if (word_is("return"))
         return parse_return_statement();
 
@@ -2520,8 +2533,11 @@ void parser_free(Statement *statement)
         free_expr(statement->expression);
         free_expr(statement->condition);
         free_expr(statement->count);
+        free_expr(statement->start);
+        free_expr(statement->finish);
         free_expr(statement->target);
 
+        parser_free(statement->step_statement);
         parser_free(statement->body);
         parser_free(statement->else_body);
 

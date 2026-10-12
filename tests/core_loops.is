@@ -6,7 +6,7 @@ then x = x + 1
 then output is x
 
 note: for
-for x <= 5
+for x = 1, 5, x++
 then output is x
 
 note: repeat
@@ -20,8 +20,8 @@ repeat x + 2
 then output is "Repeat"
 
 note: nested for
-for x <= 2
-then for y <= 2
+for x = 1, 2, x++
+then for y = 1, 2, y++
 then output = x * y
 
 note: while with stop

@@ -1,0 +1,13 @@
+outer = 0
+
+while outer < 3
+then outer = outer + 1
+then inner = 0
+then while inner < 5
+then inner = inner + 1
+then if inner == 2
+then stop
+then output = inner
+then output = outer
+
+output is "nested complete"

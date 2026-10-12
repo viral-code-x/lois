@@ -58,7 +58,9 @@ typedef enum
     STMT_REPEAT,
     STMT_FUNCTION,
     STMT_FUNCTION_CALL,
-    STMT_RETURN
+    STMT_RETURN,
+    STMT_STOP,
+    STMT_SKIP
 } StatementType;
 
 typedef struct Statement Statement;
@@ -82,6 +84,11 @@ struct Statement
     Expr *expression;
     Expr *condition;
     Expr *count;
+
+    /* Explicit for-loop range and increment */
+    Expr *start;
+    Expr *finish;
+    Statement *step_statement;
 
     /* Assignment/input destination, including set indexing */
     Expr *target;
