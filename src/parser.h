@@ -37,16 +37,18 @@ struct Expr
     Expr *condition;
 
     char *call_name;
-    Expr *call_arguments[16];
+    Expr **call_arguments;
     int call_argument_count;
 
-    /* Set indexing: numbers1, numbers2, ... */
+    /* Set indexing: numbers1, numbers2, ... and numbers(1), numbers(i) */
     Expr *index_target;
     int index;
+    Expr *index_expression;
 };
 
 typedef enum
 {
+    STMT_ADD,
     STMT_ASSIGN,
     STMT_INPUT,
     STMT_OUTPUT,
@@ -71,15 +73,18 @@ struct Statement
     /* for-loop variable */
     char *loop_variable;
 
-    char *parameters[16];
+    char **parameters;
     int parameter_count;
 
-    Expr *arguments[16];
+    Expr **arguments;
     int argument_count;
 
     Expr *expression;
     Expr *condition;
     Expr *count;
+
+    /* Assignment/input destination, including set indexing */
+    Expr *target;
 
     Statement *body;
     Statement *else_body;

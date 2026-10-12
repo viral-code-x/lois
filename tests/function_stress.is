@@ -1,0 +1,32 @@
+Square(x) = x * x
+Identity(x) = x
+Mix(x, x1, x2, x10) = x * 1000 + x1 * 100 + x2 * 10 + x10
+Twice(x) = x + x
+Nested(x, x1) = Mix(x, x1, Square(2), Square(3))
+Calculate(x, x1) = x + x1 * 2
+ReadValue(x) = x * 2
+
+first = Square(5)
+second = Identity(42)
+third = Mix(1, 2, 3, 4)
+fourth = Twice(7)
+fifth = Nested(1, 2)
+sixth = Calculate(4, 5)
+seventh = Square(Square(2))
+eighth = Mix(10, 20, 30, 40)
+ninth = ReadValue(7)
+
+x = 99
+tenth = Identity(123)
+
+output = first
+output = second
+output = third
+output = fourth
+output = fifth
+output = sixth
+output = seventh
+output = eighth
+output = ninth
+output = tenth
+output = x

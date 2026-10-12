@@ -37,6 +37,7 @@ static void set_runtime_error(Expr *expr, const char *message)
 
 #include <stdlib.h>
 #include <string.h>
+
 #include <strings.h>
 
 #define MAX_VARIABLES 256
@@ -56,7 +57,7 @@ typedef struct
 {
     char *name;
 
-    char *parameters[16];
+    char **parameters;
     int parameter_count;
 
     Expr *expression;
@@ -97,18 +98,21 @@ static void set_function(
     {
         for (int i = 0; i < existing->parameter_count; i++)
             free(existing->parameters[i]);
+        free(existing->parameters);
+        existing->parameters = NULL;
 
-        existing->parameter_count =
-            parameter_count;
-
-        for (int i = 0; i < parameter_count; i++)
-        {
-            existing->parameters[i] =
-                strdup(parameters[i]);
+        if (parameter_count > 0) {
+            existing->parameters = calloc((size_t)parameter_count, sizeof(char *));
+            if (!existing->parameters) {
+                fprintf(stderr, "LOIS: out of memory\n");
+                exit(1);
+            }
+            for (int i = 0; i < parameter_count; i++)
+                existing->parameters[i] = strdup(parameters[i]);
         }
 
-        existing->expression =
-            expression;
+        existing->parameter_count = parameter_count;
+        existing->expression = expression;
 
         return;
     }
@@ -126,13 +130,18 @@ static void set_function(
     functions[function_count].name =
         strdup(name);
 
-    functions[function_count].parameter_count =
-        parameter_count;
+    functions[function_count].parameter_count = parameter_count;
+    functions[function_count].parameters = NULL;
 
-    for (int i = 0; i < parameter_count; i++)
-    {
-        functions[function_count].parameters[i] =
-            strdup(parameters[i]);
+    if (parameter_count > 0) {
+        functions[function_count].parameters =
+            calloc((size_t)parameter_count, sizeof(char *));
+        if (!functions[function_count].parameters) {
+            fprintf(stderr, "LOIS: out of memory\n");
+            exit(1);
+        }
+        for (int i = 0; i < parameter_count; i++)
+            functions[function_count].parameters[i] = strdup(parameters[i]);
     }
 
     functions[function_count].expression =
@@ -149,6 +158,8 @@ static void free_functions(void)
 
         for (int j = 0; j < functions[i].parameter_count; j++)
             free(functions[i].parameters[j]);
+        free(functions[i].parameters);
+        functions[i].parameters = NULL;
     }
 
     function_count = 0;
@@ -476,7 +487,13 @@ static Value evaluate(Expr *expr)
              * Evaluate arguments BEFORE installing
              * the function parameters.
              */
-            Value arguments[16];
+            Value *arguments = expr->call_argument_count
+                ? calloc((size_t)expr->call_argument_count, sizeof(Value))
+                : NULL;
+            if (expr->call_argument_count && !arguments) {
+                fprintf(stderr, "LOIS: out of memory\n");
+                exit(1);
+            }
 
             for (int i = 0;
                  i < expr->call_argument_count;
@@ -491,7 +508,7 @@ static Value evaluate(Expr *expr)
                 {
                     for (int j = 0; j < i; j++)
                         value_free(&arguments[j]);
-
+                    free(arguments);
                     return value_none();
                 }
             }
@@ -500,8 +517,14 @@ static Value evaluate(Expr *expr)
              * Save variables which have the same names
              * as the function parameters.
              */
-            Variable saved[16];
+            Variable *saved = function->parameter_count
+                ? calloc((size_t)function->parameter_count, sizeof(Variable))
+                : NULL;
             int saved_count = 0;
+            if (function->parameter_count && !saved) {
+                fprintf(stderr, "LOIS: out of memory\n");
+                exit(1);
+            }
 
             for (int i = 0;
                  i < function->parameter_count;
@@ -600,12 +623,95 @@ static Value evaluate(Expr *expr)
                 free(saved[i].name);
             }
 
-            for (int i = 0;
-                 i < expr->call_argument_count;
-                 i++)
-            {
+            for (int i = 0; i < expr->call_argument_count; i++)
                 value_free(&arguments[i]);
+
+            free(arguments);
+            free(saved);
+            return result;
+        }
+
+        /*
+         * Set indexing:
+         *
+         *     number(1)
+         *     number(i)
+         *
+         * If the call name is a set rather than a function,
+         * treat its single argument as a 1-based index.
+         */
+        Variable *set_variable =
+            find_variable(expr->call_name);
+
+        if (set_variable &&
+            set_variable->value.type == VALUE_SET)
+        {
+            if (expr->call_argument_count != 1)
+            {
+                set_runtime_error(
+                    expr,
+                    "set indexing expects exactly 1 index"
+                );
+
+                return value_none();
             }
+
+            Value index_value =
+                evaluate(expr->call_arguments[0]);
+
+            if (index_value.type != VALUE_NUMBER)
+            {
+                set_runtime_error(
+                    expr,
+                    "set index requires a number"
+                );
+
+                value_free(&index_value);
+                return value_none();
+            }
+
+            int index =
+                (int)index_value.number;
+
+            if (index_value.number != (double)index ||
+                index < 1)
+            {
+                set_runtime_error(
+                    expr,
+                    "set index must be a positive integer"
+                );
+
+                value_free(&index_value);
+                return value_none();
+            }
+
+            Value *item =
+                value_set_get(
+                    &set_variable->value,
+                    index
+                );
+
+            if (!item)
+            {
+                char message[256];
+
+                snprintf(
+                    message,
+                    sizeof(message),
+                    "set index %d out of range",
+                    index
+                );
+
+                set_runtime_error(expr, message);
+
+                value_free(&index_value);
+                return value_none();
+            }
+
+            Value result =
+                value_copy(item);
+
+            value_free(&index_value);
 
             return result;
         }
@@ -1819,6 +1925,15 @@ static void execute_while(Statement *statement)
             statement->body
         );
 
+        /*
+         * A runtime error inside the loop body must stop
+         * the loop immediately. Otherwise input failures,
+         * invalid indexes, etc. can cause the loop to keep
+         * executing until the safety limit is reached.
+         */
+        if (runtime_error)
+            break;
+
         iterations++;
 
         if (iterations >= MAX_LOOP_ITERATIONS)
@@ -1839,6 +1954,28 @@ static void execute_statement(Statement *statement)
     {
         switch (statement->type)
         {
+            case STMT_ADD:
+            {
+                if (
+                    strcmp(statement->name, "game") != 0 &&
+                    strcmp(statement->name, "math") != 0
+                )
+                {
+                    char message[256];
+
+                    snprintf(
+                        message,
+                        sizeof(message),
+                        "LOIS: unknown module '%s'",
+                        statement->name
+                    );
+
+                    set_runtime_error(NULL, message);
+                }
+
+                break;
+            }
+
             case STMT_FUNCTION:
             {
                 set_function(
@@ -1903,7 +2040,13 @@ static void execute_statement(Statement *statement)
                  * Evaluate all arguments BEFORE replacing
                  * the parameter variables.
                  */
-                Value arguments[16];
+                Value *arguments = statement->argument_count
+                    ? calloc((size_t)statement->argument_count, sizeof(Value))
+                    : NULL;
+                if (statement->argument_count && !arguments) {
+                    fprintf(stderr, "LOIS: out of memory\n");
+                    exit(1);
+                }
 
                 for (int i = 0;
                      i < statement->argument_count;
@@ -1918,13 +2061,15 @@ static void execute_statement(Statement *statement)
                     {
                         for (int j = 0; j < i; j++)
                             value_free(&arguments[j]);
-
+                        free(arguments);
+                        arguments = NULL;
                         break;
                     }
                 }
 
                 if (interpreter_had_error())
                 {
+                    free(arguments);
                     break;
                 }
 
@@ -1932,8 +2077,14 @@ static void execute_statement(Statement *statement)
                  * Save existing variables with the same
                  * names as parameters.
                  */
-                Variable saved[16];
+                Variable *saved = function->parameter_count
+                    ? calloc((size_t)function->parameter_count, sizeof(Variable))
+                    : NULL;
                 int saved_count = 0;
+                if (function->parameter_count && !saved) {
+                    fprintf(stderr, "LOIS: out of memory\n");
+                    exit(1);
+                }
 
                 for (int i = 0;
                      i < function->parameter_count;
@@ -2265,11 +2416,168 @@ static void execute_statement(Statement *statement)
                             break;
                         }
 
-                        set_variable(
-                            statement->name,
-                            value_number(number),
-                            1
-                        );
+                        /*
+                         * Indexed set input:
+                         *
+                         *     input = numbers(1)
+                         *     input = numbers(i)
+                         *
+                         * The parser stores the destination in
+                         * statement->target. A normal input such as
+                         * "input = age" has no target and keeps the
+                         * existing variable behavior.
+                         */
+                        if (
+                            statement->target &&
+                            statement->target->type == EXPR_CALL
+                        )
+                        {
+                            Expr *target =
+                                statement->target;
+
+                            Variable *set_variable =
+                                find_variable(
+                                    target->call_name
+                                );
+
+                            if (
+                                !set_variable ||
+                                set_variable->value.type != VALUE_SET
+                            )
+                            {
+                                char message[256];
+
+                                snprintf(
+                                    message,
+                                    sizeof(message),
+                                    "'%s' is not a set",
+                                    target->call_name
+                                );
+
+                                set_runtime_error(
+                                    statement->target,
+                                    message
+                                );
+
+                                break;
+                            }
+
+                            if (
+                                target->call_argument_count != 1
+                            )
+                            {
+                                set_runtime_error(
+                                    statement->target,
+                                    "set input requires exactly 1 index"
+                                );
+
+                                break;
+                            }
+
+                            Value index_value =
+                                evaluate(
+                                    target->call_arguments[0]
+                                );
+
+                            if (
+                                index_value.type !=
+                                VALUE_NUMBER
+                            )
+                            {
+                                set_runtime_error(
+                                    statement->target,
+                                    "set index requires a number"
+                                );
+
+                                value_free(
+                                    &index_value
+                                );
+
+                                break;
+                            }
+
+                            int index =
+                                (int)index_value.number;
+
+                            if (
+                                index_value.number !=
+                                    (double)index ||
+                                index < 1
+                            )
+                            {
+                                set_runtime_error(
+                                    statement->target,
+                                    "set index must be a positive integer"
+                                );
+
+                                value_free(
+                                    &index_value
+                                );
+
+                                break;
+                            }
+
+                            /*
+                             * Existing element -> replace it.
+                             * Next element -> append it.
+                             * Any larger index would create a hole,
+                             * so reject it.
+                             */
+                            if (
+                                index <=
+                                set_variable->value.set.count
+                            )
+                            {
+                                Value *item =
+                                    value_set_get(
+                                        &set_variable->value,
+                                        index
+                                    );
+
+                                value_free(item);
+
+                                *item =
+                                    value_number(number);
+                            }
+                            else if (
+                                index ==
+                                set_variable->value.set.count + 1
+                            )
+                            {
+                                value_set_add(
+                                    &set_variable->value,
+                                    value_number(number)
+                                );
+                            }
+                            else
+                            {
+                                char message[256];
+
+                                snprintf(
+                                    message,
+                                    sizeof(message),
+                                    "set index %d out of range",
+                                    index
+                                );
+
+                                set_runtime_error(
+                                    statement->target,
+                                    message
+                                );
+                            }
+
+                            value_free(
+                                &index_value
+                            );
+                        }
+                        else
+                        {
+                            set_variable(
+                                statement->name,
+                                value_number(number),
+                                1
+                            );
+                        }
                     }
                     else
                     {
