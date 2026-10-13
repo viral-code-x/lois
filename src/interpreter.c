@@ -1903,6 +1903,9 @@ static void execute_repeat(Statement *statement)
     int repetitions =
         (int)count.number;
 
+    if (statement->repeat_additional)
+        repetitions++;
+
     value_free(&count);
 
     if (repetitions <= 0)

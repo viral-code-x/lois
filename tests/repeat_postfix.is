@@ -1,0 +1,14 @@
+x = 1
+output = x
+then x = x + 1
+then repeat 3
+output = x
+
+output is "postfix chain complete"
+
+y = 10
+output = y
+then y = y + 5
+then output = y
+then repeat 2
+output = y

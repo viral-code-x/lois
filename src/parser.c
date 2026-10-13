@@ -2484,28 +2484,136 @@ static void recover_to_next_line(void)
 Statement *parser_parse(TokenList *token_list)
 {
     parser_error_count = 0;
-
     tokens = token_list;
     position = 0;
 
     Statement *head = NULL;
     Statement *tail = NULL;
+    Statement *previous_tail = NULL;
+
+    Statement *chain_start = NULL;
+    Statement *chain_previous = NULL;
 
     while (current()->type != TOKEN_EOF)
     {
-        int start_position = position;
+        skip_newlines();
 
-        Statement *statement =
-            parse_statement();
+        if (current()->type == TOKEN_EOF)
+            break;
+
+        if (word_is("then"))
+        {
+            advance();
+
+            if (word_is("repeat"))
+            {
+                advance();
+
+                if (!tail)
+                {
+                    fprintf(stderr,
+                            "LOIS: 'then repeat' needs a preceding statement\n");
+                    recover_to_next_line();
+                    chain_start = NULL;
+                    chain_previous = NULL;
+                    continue;
+                }
+
+                if (!chain_start)
+                {
+                    chain_start = tail;
+                    chain_previous = previous_tail;
+                }
+
+                Statement *repeat = new_statement(STMT_REPEAT);
+                repeat->count = parse_expression(0);
+
+                if (!repeat->count)
+                {
+                    fprintf(stderr,
+                            "LOIS: expected count after 'then repeat'\n");
+                    parser_free(repeat);
+                    recover_to_next_line();
+                    chain_start = NULL;
+                    chain_previous = NULL;
+                    continue;
+                }
+
+                Statement *body_tail = tail;
+
+                while (current()->type != TOKEN_NEWLINE &&
+                       current()->type != TOKEN_EOF)
+                    advance();
+
+                if (current()->type == TOKEN_NEWLINE)
+                    advance();
+
+                body_tail->next = NULL;
+                repeat->body = chain_start;
+                repeat->repeat_additional = 1;
+
+                if (chain_previous)
+                    chain_previous->next = repeat;
+                else
+                    head = repeat;
+
+                repeat->next = NULL;
+                previous_tail = chain_previous;
+                tail = repeat;
+
+                chain_start = NULL;
+                chain_previous = NULL;
+                continue;
+            }
+
+            if (!tail)
+            {
+                fprintf(stderr,
+                        "LOIS: 'then' needs a preceding statement\n");
+                recover_to_next_line();
+                continue;
+            }
+
+            if (!chain_start)
+            {
+                chain_start = tail;
+                chain_previous = previous_tail;
+            }
+
+            int start_position = position;
+            Statement *statement = parse_statement();
+
+            if (!statement)
+            {
+                if (current()->type != TOKEN_EOF &&
+                    position == start_position)
+                    recover_to_next_line();
+                continue;
+            }
+
+            tail->next = statement;
+            previous_tail = tail;
+            tail = statement;
+
+            while (tail->next)
+            {
+                tail = tail->next;
+            }
+
+            continue;
+        }
+
+        chain_start = NULL;
+        chain_previous = NULL;
+
+        int start_position = position;
+        Statement *statement = parse_statement();
 
         if (!statement)
         {
-            if (current()->type != TOKEN_EOF)
-            {
-                if (position == start_position)
-                    recover_to_next_line();
-            }
-
+            if (current()->type != TOKEN_EOF &&
+                position == start_position)
+                recover_to_next_line();
             continue;
         }
 
@@ -2517,7 +2625,14 @@ Statement *parser_parse(TokenList *token_list)
         else
         {
             tail->next = statement;
+            previous_tail = tail;
             tail = statement;
+        }
+
+        while (tail->next)
+        {
+            previous_tail = tail;
+            tail = tail->next;
         }
     }
 
