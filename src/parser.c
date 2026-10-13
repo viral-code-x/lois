@@ -2097,6 +2097,47 @@ static Statement *parse_for_statement(void)
 
     statement->finish = parse_expression(0);
 
+    /*
+     * A single '=' in the condition position means equality.
+     * Assignment parsing elsewhere remains unchanged.
+     */
+    if (statement->finish && current()->type == TOKEN_ASSIGN)
+    {
+        advance();
+
+        Expr *right = parse_expression(0);
+
+        if (!right)
+        {
+            parser_error("LOIS: expected value after '=' in for condition");
+            parser_free(statement);
+            return NULL;
+        }
+
+        statement->finish = make_binary(
+            statement->finish,
+            right,
+            TOKEN_ASSIGN
+        );
+
+        statement->for_condition = 1;
+    }
+    else if (
+        statement->finish &&
+        statement->finish->type == EXPR_BINARY &&
+        (
+            statement->finish->operator == TOKEN_NOT_EQUAL ||
+            statement->finish->operator == TOKEN_LESS ||
+            statement->finish->operator == TOKEN_GREATER ||
+            statement->finish->operator == TOKEN_LESS_EQUAL ||
+            statement->finish->operator == TOKEN_GREATER_EQUAL ||
+            statement->finish->operator == TOKEN_EQUAL_EQUAL
+        )
+    )
+    {
+        statement->for_condition = 1;
+    }
+
     if (!statement->finish || current()->type != TOKEN_COMMA)
     {
         parser_error("LOIS: expected finish expression followed by ',' in for loop");

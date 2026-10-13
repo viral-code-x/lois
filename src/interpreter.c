@@ -1413,6 +1413,7 @@ static Value evaluate(Expr *expr)
                     break;
 
                 case TOKEN_EQUAL_EQUAL:
+                case TOKEN_ASSIGN:
                 case TOKEN_NOT_EQUAL:
                     if (
                         left.type != right.type
@@ -1446,7 +1447,10 @@ static Value evaluate(Expr *expr)
                     }
 
                     result =
-                        expr->operator == TOKEN_EQUAL_EQUAL
+                        (
+                            expr->operator == TOKEN_EQUAL_EQUAL ||
+                            expr->operator == TOKEN_ASSIGN
+                        )
                             ? l == r
                             : l != r;
 
@@ -1740,20 +1744,35 @@ static void execute_for(Statement *statement)
         return;
 
     Value start_value = evaluate(statement->start);
-    Value finish_value = evaluate(statement->finish);
 
-    if (
-        start_value.type != VALUE_NUMBER ||
-        finish_value.type != VALUE_NUMBER
-    )
+    if (start_value.type != VALUE_NUMBER)
     {
-        fprintf(stderr, "LOIS: for-loop start and finish must be numbers\n");
+        fprintf(stderr, "LOIS: for-loop start must be a number\n");
         value_free(&start_value);
-        value_free(&finish_value);
         return;
     }
 
-    double finish = finish_value.number;
+    double finish = 0;
+
+    /*
+     * Legacy range endpoints are evaluated once.
+     * Comparison conditions are evaluated on every iteration.
+     */
+    if (!statement->for_condition)
+    {
+        Value finish_value = evaluate(statement->finish);
+
+        if (finish_value.type != VALUE_NUMBER)
+        {
+            fprintf(stderr, "LOIS: for-loop finish must be a number\n");
+            value_free(&start_value);
+            value_free(&finish_value);
+            return;
+        }
+
+        finish = finish_value.number;
+        value_free(&finish_value);
+    }
 
     set_variable(
         statement->loop_variable,
@@ -1762,7 +1781,6 @@ static void execute_for(Statement *statement)
     );
 
     value_free(&start_value);
-    value_free(&finish_value);
 
     Variable *variable = find_variable(statement->loop_variable);
 
@@ -1813,11 +1831,22 @@ static void execute_for(Statement *statement)
 
         double current_value = variable->value.number;
 
-        if (
+        if (statement->for_condition)
+        {
+            Value condition = evaluate(statement->finish);
+            int keep_going = truthy(&condition);
+            value_free(&condition);
+
+            if (runtime_error || !keep_going)
+                break;
+        }
+        else if (
             (ascending && current_value > finish) ||
             (!ascending && current_value < finish)
         )
+        {
             break;
+        }
 
         execute_statement(statement->body);
 

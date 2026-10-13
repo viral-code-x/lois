@@ -88,6 +88,7 @@ struct Statement
     /* Explicit for-loop range and increment */
     Expr *start;
     Expr *finish;
+    int for_condition;
     Statement *step_statement;
 
     /* Assignment/input destination, including set indexing */
