@@ -2254,64 +2254,77 @@ static Statement *parse_repeat_statement(void)
 
     advance();
 
-    Statement *statement =
-        new_statement(STMT_REPEAT);
-
-    /*
-     * Parse the repetition count.
-     */
-    statement->count =
-        parse_expression(0);
+    Statement *statement = new_statement(STMT_REPEAT);
+    statement->count = parse_expression(0);
 
     if (!statement->count)
     {
-        fprintf(
-            stderr,
-            "LOIS: expected count after 'repeat'\n"
-        );
-
+        parser_error("LOIS: expected count after 'repeat'");
         parser_free(statement);
         return NULL;
     }
 
-    /*
-     * Move to the "then" line.
-     */
     skip_newlines();
 
     if (!word_is("then"))
     {
-        fprintf(
-            stderr,
-            "LOIS: expected 'then' after repeat count\n"
-        );
-
+        parser_error("LOIS: expected 'then' after repeat count");
         parser_free(statement);
         return NULL;
     }
 
     advance();
 
-    /*
-     * Parse the single body statement.
-     */
-    statement->body =
-        parse_single_body();
+    Statement *body = parse_single_body();
 
-    /*
-     * Consume the rest of the body line.
-     */
-    while (
-        current()->type != TOKEN_NEWLINE &&
-        current()->type != TOKEN_EOF
-    )
+    if (!body)
     {
-        advance();
+        parser_error("LOIS: expected statement after 'then' in repeat");
+        parser_free(statement);
+        return NULL;
     }
+
+    statement->body = body;
+    Statement *body_tail = body;
+
+    while (1)
+    {
+        if (current()->type == TOKEN_EOF)
+            break;
+
+        if (current()->type == TOKEN_NEWLINE)
+            advance();
+
+        /* A blank line ends the repeat body. */
+        if (current()->type == TOKEN_NEWLINE)
+            break;
+
+        /* Only an explicit "then" continues the body. */
+        if (!word_is("then"))
+            break;
+
+        advance();
+
+        Statement *next_body = parse_single_body();
+
+        if (!next_body)
+        {
+            parser_error("LOIS: expected statement after 'then' in repeat");
+            parser_free(statement);
+            return NULL;
+        }
+
+        body_tail->next = next_body;
+
+        while (body_tail->next)
+            body_tail = body_tail->next;
+    }
+
+    /* Keep the repeat body separate from following statements. */
+    body_tail->next = NULL;
 
     return statement;
 }
-
 
 /* Equation-style definitions: Square(x) = x * x */
 static Statement *parse_explicit_function_statement(void)

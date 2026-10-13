@@ -1,0 +1,31 @@
+for x = 1, 5, x++
+then if x == 3
+then skip
+then output = x
+
+output is "for skip passed"
+
+for y = 1, 5, y++
+then if y == 3
+then stop
+then output = y
+
+output is "for stop passed"
+
+a = 0
+while a < 5
+then a = a + 1
+then if a == 3
+then skip
+then output = a
+
+output is "while skip passed"
+
+b = 0
+while b < 5
+then b = b + 1
+then if b == 3
+then stop
+then output = b
+
+output is "while stop passed"

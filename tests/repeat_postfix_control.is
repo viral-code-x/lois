@@ -1,0 +1,19 @@
+n = 0
+output = n
+then n = n + 1
+then if n == 2
+then skip
+then output = n
+then repeat 3
+output = n
+output is "postfix skip passed"
+
+m = 0
+output = m
+then m = m + 1
+then if m == 2
+then stop
+then output = m
+then repeat 4
+output = m
+output is "postfix stop passed"

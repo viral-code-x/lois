@@ -1,0 +1,17 @@
+for x = 1, 2, x++
+then for y = 1, 3, y++
+then if y == 2
+then stop
+then output = y
+then output = x
+
+output is "nested stop passed"
+
+for a = 1, 2, a++
+then for b = 1, 3, b++
+then if b == 2
+then skip
+then output = b
+then output = a
+
+output is "nested skip passed"

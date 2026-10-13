@@ -1,0 +1,31 @@
+output is "for containing while"
+
+for a = 1, 2, a++
+then b = 0
+then while b < 3
+then b = b + 1
+then if b == 2
+then stop
+then output = b
+then output = a
+
+output is "while containing for"
+
+c = 0
+while c < 2
+then c = c + 1
+then for d = 1, 3, d++
+then if d == 2
+then skip
+then output = d
+then output = c
+
+output is "for containing repeat"
+
+for e = 1, 2, e++
+then repeat 3
+then if e == 1
+then stop
+then output = e
+
+output is "cross nesting complete"
