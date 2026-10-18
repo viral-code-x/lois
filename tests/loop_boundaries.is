@@ -1,0 +1,16 @@
+i = 0
+while i < 2
+then i++
+then output = i
+
+output is "after while"
+
+for j = 1, 2, j++
+then output = j
+
+output is "after for"
+
+repeat 2
+then output is "inside repeat"
+
+output is "after repeat"

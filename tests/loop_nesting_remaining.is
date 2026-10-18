@@ -1,0 +1,20 @@
+output is "while containing repeat"
+a = 0
+while a < 2
+then a = a + 1
+then repeat 2
+then output = a
+
+output is "repeat containing while"
+repeat 2
+then b = 0
+then while b < 2
+then b = b + 1
+then output = b
+
+output is "repeat containing for"
+repeat 2
+then for c = 1, 2, c++
+then output = c
+
+output is "all remaining nesting tests passed"
