@@ -2317,6 +2317,141 @@ static void execute_statement(Statement *statement)
             case STMT_ASSIGN:
             {
                 /*
+                 * Convert an existing variable to text or num.
+                 */
+                if (
+                    statement->extra &&
+                    (
+                        strcmp(statement->extra, "cast_num") == 0 ||
+                        strcmp(statement->extra, "cast_text") == 0
+                    )
+                )
+                {
+                    int cast_to_num =
+                        strcmp(statement->extra, "cast_num") == 0;
+
+                    Variable *existing =
+                        find_variable(statement->name);
+
+                    if (!existing)
+                    {
+                        set_variable(
+                            statement->name,
+                            cast_to_num
+                                ? value_number(0)
+                                : value_string(""),
+                            cast_to_num
+                        );
+                        break;
+                    }
+
+                    Value converted = value_none();
+
+                    if (cast_to_num)
+                    {
+                        if (existing->value.type == VALUE_NUMBER)
+                        {
+                            converted = value_copy(&existing->value);
+                        }
+                        else if (existing->value.type == VALUE_BOOL)
+                        {
+                            converted = value_number(existing->value.number);
+                        }
+                        else if (existing->value.type == VALUE_STRING)
+                        {
+                            char *end = NULL;
+                            char *start = existing->value.string;
+
+                            while (
+                                *start == ' ' ||
+                                *start == '\t' ||
+                                *start == '\n' ||
+                                *start == '\r'
+                            )
+                                start++;
+
+                            double number = strtod(start, &end);
+
+                            while (
+                                end && (
+                                    *end == ' ' ||
+                                    *end == '\t' ||
+                                    *end == '\n' ||
+                                    *end == '\r'
+                                )
+                            )
+                                end++;
+
+                            if (
+                                end == start ||
+                                !end ||
+                                *end != '\0' ||
+                                !isfinite(number)
+                            )
+                            {
+                                fprintf(
+                                    stderr,
+                                    "LOIS: cannot cast text to num for %s\n",
+                                    statement->name
+                                );
+                                runtime_error = 1;
+                                break;
+                            }
+
+                            converted = value_number(number);
+                        }
+                        else
+                        {
+                            fprintf(
+                                stderr,
+                                "LOIS: cannot cast this value to num for %s\n",
+                                statement->name
+                            );
+                            runtime_error = 1;
+                            break;
+                        }
+
+                        set_variable(statement->name, converted, 1);
+                        break;
+                    }
+
+                    if (existing->value.type == VALUE_STRING)
+                    {
+                        converted = value_copy(&existing->value);
+                    }
+                    else if (existing->value.type == VALUE_NUMBER)
+                    {
+                        char buffer[64];
+                        snprintf(
+                            buffer,
+                            sizeof(buffer),
+                            "%.15g",
+                            existing->value.number
+                        );
+                        converted = value_string(buffer);
+                    }
+                    else if (existing->value.type == VALUE_BOOL)
+                    {
+                        converted = value_string(
+                            existing->value.number ? "True" : "False"
+                        );
+                    }
+                    else
+                    {
+                        fprintf(
+                            stderr,
+                            "LOIS: cannot cast this value to text for %s\n",
+                            statement->name
+                        );
+                        runtime_error = 1;
+                        break;
+                    }
+
+                    set_variable(statement->name, converted, 0);
+                    break;
+                }
+
+                /*
                  * x = expression
                  *
                  * Always numeric.

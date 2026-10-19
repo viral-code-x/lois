@@ -88,6 +88,7 @@ static int is_reserved_word(const char *word)
     {
         "is",
         "num",
+        "text",
         "function",
         "if",
         "then",
@@ -1432,6 +1433,37 @@ static Statement *parse_assignment_statement(void)
     {
         advance();
 
+        /*
+         * A lone type keyword casts the existing variable.
+         * Other assignments retain their existing behavior.
+         */
+        if (
+            current()->type == TOKEN_WORD &&
+            (word_is("num") || word_is("text")) &&
+            peek(1)->type != TOKEN_PLUS &&
+            peek(1)->type != TOKEN_MINUS &&
+            peek(1)->type != TOKEN_STAR &&
+            peek(1)->type != TOKEN_SLASH &&
+            peek(1)->type != TOKEN_PERCENT &&
+            peek(1)->type != TOKEN_CARET &&
+            peek(1)->type != TOKEN_GREATER &&
+            peek(1)->type != TOKEN_LESS &&
+            peek(1)->type != TOKEN_GREATER_EQUAL &&
+            peek(1)->type != TOKEN_LESS_EQUAL &&
+            peek(1)->type != TOKEN_EQUAL_EQUAL &&
+            peek(1)->type != TOKEN_NOT_EQUAL &&
+            peek(1)->type != TOKEN_AND &&
+            peek(1)->type != TOKEN_OR &&
+            peek(1)->type != TOKEN_LPAREN
+        )
+        {
+            statement->extra =
+                strdup(word_is("num") ? "cast_num" : "cast_text");
+
+            advance();
+            return statement;
+        }
+
         statement->extra =
             strdup("num");
 
@@ -1454,17 +1486,16 @@ static Statement *parse_assignment_statement(void)
     advance();
 
     /*
-     * name is num
-     *
-     * Declares a numeric variable initialized to 0.
+     * A lone type keyword casts an existing variable.
+     * If the variable does not exist, the interpreter
+     * preserves the old default-initialization behavior.
      */
-    if (word_is("num"))
+    if (word_is("num") || word_is("text"))
     {
         statement->extra =
-            strdup("num");
+            strdup(word_is("num") ? "cast_num" : "cast_text");
 
         advance();
-
         return statement;
     }
 
@@ -1499,6 +1530,33 @@ static Statement *parse_assignment_statement(void)
      * If the word is followed by an operator or function call,
      * parse it as a real expression.
      */
+    /*
+     * A standalone numeric literal after "is" is text by default.
+     */
+    if (
+        current()->type == TOKEN_NUMBER &&
+        peek(1)->type != TOKEN_PLUS &&
+        peek(1)->type != TOKEN_MINUS &&
+        peek(1)->type != TOKEN_STAR &&
+        peek(1)->type != TOKEN_SLASH &&
+        peek(1)->type != TOKEN_PERCENT &&
+        peek(1)->type != TOKEN_CARET &&
+        peek(1)->type != TOKEN_GREATER &&
+        peek(1)->type != TOKEN_LESS &&
+        peek(1)->type != TOKEN_GREATER_EQUAL &&
+        peek(1)->type != TOKEN_LESS_EQUAL &&
+        peek(1)->type != TOKEN_EQUAL_EQUAL &&
+        peek(1)->type != TOKEN_NOT_EQUAL &&
+        peek(1)->type != TOKEN_AND &&
+        peek(1)->type != TOKEN_OR
+    )
+    {
+        statement->expression = new_expr(EXPR_LITERAL);
+        statement->expression->text = strdup(current()->text);
+        advance();
+        return statement;
+    }
+
     if (
         current()->type == TOKEN_WORD &&
         peek(1)->type != TOKEN_PLUS &&

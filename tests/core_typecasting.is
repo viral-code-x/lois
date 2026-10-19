@@ -4,11 +4,25 @@ age is num
 output is age
 output = age + 5
 
-age is string
+age is text
 
 output is age
 
-x is "123"
-x is num
+a is 123
+a = num
+output = a + 7
 
-output = x + 7
+b is 456
+b is num
+output = b + 1
+
+c is 789
+c = text
+output is c
+
+d is 321
+d is text
+output is d
+
+x is num
+output = x
