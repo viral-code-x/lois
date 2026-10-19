@@ -1,0 +1,5 @@
+fruits = {"apple", "banana"}
+
+input is fruits(3) for "Enter another fruit: "
+
+output is fruits

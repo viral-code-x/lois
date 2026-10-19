@@ -1265,7 +1265,7 @@ static Statement *parse_input_statement(void)
 
         if (current()->type != TOKEN_WORD)
         {
-            parser_error("LOIS: expected variable name after 'input is'");
+            parser_error("LOIS: expected variable name or set target after 'input is'");
             return statement;
         }
 
@@ -1275,7 +1275,15 @@ static Statement *parse_input_statement(void)
         statement->extra =
             strdup("string");
 
-        advance();
+        if (peek(1)->type == TOKEN_LPAREN)
+        {
+            statement->target =
+                parse_primary();
+        }
+        else
+        {
+            advance();
+        }
     }
     else if (current()->type == TOKEN_ASSIGN)
     {

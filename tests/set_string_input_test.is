@@ -1,0 +1,4 @@
+fruits = {"apple", "banana", "cherry"}
+input is fruits(2) for "Enter a replacement: "
+output is fruits
+output is fruits(2)
