@@ -1678,7 +1678,7 @@ static Value evaluate_output_expr(Expr *expr)
             snprintf(
                 buffer,
                 sizeof(buffer),
-                "%s %s",
+                "%s%s",
                 left_text,
                 right_text
             );
@@ -1700,7 +1700,7 @@ static Value evaluate_output_expr(Expr *expr)
     return evaluate(expr);
 }
 
-static void execute_output(Expr *expr)
+static void execute_output(Expr *expr, int suppress_newline)
 {
     if (!expr)
         return;
@@ -1724,7 +1724,8 @@ static void execute_output(Expr *expr)
 
     value_free(&value);
 
-    lois_print("\n");
+    if (!suppress_newline)
+        lois_print("\n");
 }
 
 
@@ -2578,7 +2579,7 @@ static void execute_statement(Statement *statement)
 
                 if (web_input_ok)
 #else
-                fflush(stdout);
+                lois_output_flush();
 
                 if (
                     fgets(
@@ -2942,7 +2943,8 @@ static void execute_statement(Statement *statement)
 
             case STMT_OUTPUT:
                 execute_output(
-                    statement->expression
+                    statement->expression,
+                    statement->suppress_newline
                 );
                 break;
 

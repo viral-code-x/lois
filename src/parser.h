@@ -85,6 +85,8 @@ struct Statement
     Expr *condition;
     Expr *count;
     int repeat_additional;
+    int suppress_newline;
+    int join_previous;
 
     /* Explicit for-loop range and increment */
     Expr *start;

@@ -1,5 +1,7 @@
 #include "output.h"
 
+#include <stdio.h>
+
 #include <string.h>
 
 #define OUTPUT_SIZE (1024 * 1024)
@@ -30,6 +32,19 @@ void lois_output_reset(void)
     output_length = 0;
     output_buffer[0] = '\0';
 }
+
+void lois_output_flush(void)
+{
+#ifndef __EMSCRIPTEN__
+    if (output_length > 0)
+        fputs(output_buffer, stdout);
+
+    fflush(stdout);
+#endif
+
+    lois_output_reset();
+}
+
 
 void lois_output_write(const char *text)
 {

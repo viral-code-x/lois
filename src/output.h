@@ -2,6 +2,7 @@
 #define LOIS_OUTPUT_H
 
 void lois_output_reset(void);
+void lois_output_flush(void);
 void lois_output_write(const char *text);
 const char *lois_output_get(void);
 

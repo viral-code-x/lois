@@ -86,6 +86,8 @@ static int is_reserved_word(const char *word)
 {
     static const char *reserved[] =
     {
+        "with",
+        "join",
         "is",
         "num",
         "text",
@@ -1334,19 +1336,19 @@ static Statement *parse_input_statement(void)
     /*
      * Optional input prompt:
      *
-     * input is name for "Enter your name"
+     * input is name with "Enter your name"
      *
-     * The expression after 'for' is stored as the
+     * The expression after 'with' is stored as the
      * input message.
      */
-    if (word_is("for"))
+    if (word_is("with"))
     {
         advance();
 
         if (current()->type != TOKEN_STRING)
         {
             parser_error(
-                "LOIS: expected quoted input message after 'for'"
+                "LOIS: expected quoted input message after 'with'"
             );
             return statement;
         }
@@ -1760,60 +1762,42 @@ static Statement *parse_single_body(void)
 
 static Statement *parse_if_statement(void)
 {
-    /*
-     * LOIS conditional chain:
-     *
-     * if condition
-     * then execution
-     *
-     * if condition
-     * then execution
-     * else execution
-     *
-     * if condition
-     * then execution
-     * but if condition
-     * then execution
-     * else execution
-     */
-
     if (!word_is("if"))
         return NULL;
 
     advance();
 
-    Statement *statement =
-        new_statement(STMT_IF);
+    Statement *statement = new_statement(STMT_IF);
 
-    /*
-     * Parse condition.
-     */
-    statement->condition =
-        parse_expression(0);
+    statement->condition = parse_expression(0);
+
+    if (!statement->condition)
+    {
+        parser_error("LOIS: expected condition after 'if'");
+        parser_free(statement);
+        return NULL;
+    }
 
     skip_newlines();
 
     if (!word_is("then"))
     {
-        parser_error(
-            "LOIS: expected 'then' after if condition"
-        );
-
+        parser_error("LOIS: expected 'then' after if condition");
         parser_free(statement);
         return NULL;
     }
 
     advance();
 
-    /*
-     * Parse the single statement after then.
-     */
-    statement->body =
-        parse_single_body();
+    statement->body = parse_single_body();
 
-    /*
-     * Consume the remainder of the body line.
-     */
+    if (!statement->body)
+    {
+        parser_error("LOIS: expected statement after 'then' in if");
+        parser_free(statement);
+        return NULL;
+    }
+
     while (
         current()->type != TOKEN_NEWLINE &&
         current()->type != TOKEN_EOF
@@ -1825,183 +1809,63 @@ static Statement *parse_if_statement(void)
     skip_newlines();
 
     /*
-     * Final else.
+     * else if and but if both continue the same
+     * conditional chain. Recursion supports any
+     * number of alternatives without changing syntax.
      */
     if (word_is("else"))
     {
         advance();
-
-        statement->else_body =
-            parse_single_body();
-
-        while (
-            current()->type != TOKEN_NEWLINE &&
-            current()->type != TOKEN_EOF
-        )
-        {
-            advance();
-        }
-
-        return statement;
-    }
-
-    /*
-     * Else-if:
-     *
-     *     but if condition
-     *     then statement
-     *
-     * Build the next IF node directly and attach it
-     * as this statement's else branch.
-     */
-    if (
-        word_is("but") &&
-        peek_word_is(1, "if")
-    )
-    {
-        /*
-         * Consume "but".
-         */
-        advance();
-
-        /*
-         * Consume "if".
-         */
-        advance();
-
-        Statement *else_if =
-            new_statement(STMT_IF);
-
-        /*
-         * Parse the else-if condition.
-         */
-        else_if->condition =
-            parse_expression(0);
-
         skip_newlines();
 
-        if (!word_is("then"))
+        if (word_is("if"))
         {
-            parser_error(
-                "LOIS: expected 'then' after but if condition"
-            );
+            statement->else_body = parse_if_statement();
 
-            parser_free(else_if);
-            parser_free(statement);
-            return NULL;
-        }
-
-        advance();
-
-        /*
-         * Parse else-if body.
-         */
-        else_if->body =
-            parse_single_body();
-
-        while (
-            current()->type != TOKEN_NEWLINE &&
-            current()->type != TOKEN_EOF
-        )
-        {
-            advance();
-        }
-
-        skip_newlines();
-
-        /*
-         * Attach another branch or the final else.
-         */
-        if (word_is("but") && peek_word_is(1, "if"))
-        {
-            /*
-             * Recursively parse the remaining chain.
-             *
-             * We are currently positioned at "but", so
-             * consume it and the following "if", then
-             * construct the nested IF directly.
-             */
-            advance(); /* but */
-            advance(); /* if */
-
-            Statement *next_if =
-                new_statement(STMT_IF);
-
-            next_if->condition =
-                parse_expression(0);
-
-            skip_newlines();
-
-            if (!word_is("then"))
+            if (!statement->else_body)
             {
-                parser_error(
-                    "LOIS: expected 'then' after but if condition"
-                );
-
-                parser_free(next_if);
                 parser_free(statement);
                 return NULL;
             }
 
-            advance();
-
-            next_if->body =
-                parse_single_body();
-
-            while (
-                current()->type != TOKEN_NEWLINE &&
-                current()->type != TOKEN_EOF
-            )
-            {
-                advance();
-            }
-
-            skip_newlines();
-
-            if (word_is("else"))
-            {
-                advance();
-
-                next_if->else_body =
-                    parse_single_body();
-
-                while (
-                    current()->type != TOKEN_NEWLINE &&
-                    current()->type != TOKEN_EOF
-                )
-                {
-                    advance();
-                }
-            }
-
-            else_if->else_body =
-                next_if;
+            return statement;
         }
-        else if (word_is("else"))
+
+        statement->else_body = parse_single_body();
+
+        if (!statement->else_body)
+        {
+            parser_error("LOIS: expected statement after 'else'");
+            parser_free(statement);
+            return NULL;
+        }
+
+        while (
+            current()->type != TOKEN_NEWLINE &&
+            current()->type != TOKEN_EOF
+        )
         {
             advance();
-
-            else_if->else_body =
-                parse_single_body();
-
-            while (
-                current()->type != TOKEN_NEWLINE &&
-                current()->type != TOKEN_EOF
-            )
-            {
-                advance();
-            }
         }
-
-        statement->else_body =
-            else_if;
 
         return statement;
     }
 
+    if (word_is("but") && peek_word_is(1, "if"))
+    {
+        advance(); /* but */
+
+        statement->else_body = parse_if_statement();
+
+        if (!statement->else_body)
+        {
+            parser_free(statement);
+            return NULL;
+        }
+    }
+
     return statement;
 }
-
 
 /*
  * Parse:
@@ -2252,16 +2116,7 @@ static Statement *parse_for_statement(void)
 
     statement->body = body;
 
-    if (!word_is("then"))
-    {
-        while (
-            current()->type != TOKEN_NEWLINE &&
-            current()->type != TOKEN_EOF
-        )
-        {
-            advance();
-        }
-    }
+
 
     Statement *body_tail = body;
 
@@ -2295,16 +2150,7 @@ static Statement *parse_for_statement(void)
         body_tail->next = next_body;
         body_tail = next_body;
 
-        if (!word_is("then"))
-        {
-            while (
-                current()->type != TOKEN_NEWLINE &&
-                current()->type != TOKEN_EOF
-            )
-            {
-                advance();
-            }
-        }
+
     }
 
     body_tail->next = NULL;
@@ -2500,6 +2346,23 @@ static Statement *parse_statement(void)
     if (word_is("add"))
         return parse_add_statement();
 
+    if (word_is("join"))
+    {
+        advance(); /* join */
+
+        if (!word_is("output"))
+        {
+            parser_error("LOIS: expected output after 'join'");
+            return NULL;
+        }
+
+        Statement *joined = parse_output_statement();
+        if (joined)
+            joined->join_previous = 1;
+
+        return joined;
+    }
+
     if (word_is("output"))
         return parse_output_statement();
 
@@ -2670,6 +2533,16 @@ Statement *parser_parse(TokenList *token_list)
                 continue;
             }
 
+            if (statement->join_previous)
+            {
+                if (tail->type == STMT_OUTPUT)
+                    tail->suppress_newline = 1;
+                else
+                    parser_error(
+                        "LOIS: 'join output' must follow an output statement"
+                    );
+            }
+
             tail->next = statement;
             previous_tail = tail;
             tail = statement;
@@ -2694,6 +2567,16 @@ Statement *parser_parse(TokenList *token_list)
                 position == start_position)
                 recover_to_next_line();
             continue;
+        }
+
+        if (statement->join_previous)
+        {
+            if (tail && tail->type == STMT_OUTPUT)
+                tail->suppress_newline = 1;
+            else
+                parser_error(
+                    "LOIS: 'join output' must follow an output statement"
+                );
         }
 
         if (!head)
