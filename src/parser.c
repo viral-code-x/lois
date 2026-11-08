@@ -2147,15 +2147,133 @@ static Statement *parse_for_statement(void)
             return NULL;
         }
 
+
         body_tail->next = next_body;
         body_tail = next_body;
-
-
     }
 
     body_tail->next = NULL;
 
     return statement;
+}
+
+
+
+static int repeat_line_ends_with_times(void)
+{
+    int i = position;
+
+    while (
+        i < tokens->count &&
+        tokens->tokens[i].type != TOKEN_NEWLINE &&
+        tokens->tokens[i].type != TOKEN_EOF
+    )
+    {
+        i++;
+    }
+
+    if (i <= position)
+        return 0;
+
+    Token *last = &tokens->tokens[i - 1];
+
+    return
+        last->type == TOKEN_WORD &&
+        strcasecmp(last->text, "times") == 0;
+}
+
+
+static Statement *parse_repeat_block(Statement *statement)
+{
+    skip_newlines();
+
+    Statement *body = parse_statement();
+
+    if (!body)
+    {
+        parser_error("LOIS: expected a statement inside repeat block");
+        parser_free(statement);
+        return NULL;
+    }
+
+    statement->body = body;
+
+    Statement *body_tail = body;
+
+    while (body_tail->next)
+        body_tail = body_tail->next;
+
+    while (1)
+    {
+        if (current()->type == TOKEN_NEWLINE)
+            skip_newlines();
+
+        if (current()->type == TOKEN_EOF)
+        {
+            parser_error("LOIS: expected closing count followed by 'times'");
+            parser_free(statement);
+            return NULL;
+        }
+
+        /*
+         * The closing line contains a count expression
+         * followed by the word "times".
+         */
+        if (repeat_line_ends_with_times())
+        {
+            statement->count = parse_expression(0);
+
+            if (!statement->count || !word_is("times"))
+            {
+                parser_error("LOIS: invalid repeat closing count");
+                parser_free(statement);
+                return NULL;
+            }
+
+            advance();
+
+            if (
+                current()->type != TOKEN_NEWLINE &&
+                current()->type != TOKEN_EOF
+            )
+            {
+                parser_error("LOIS: unexpected content after repeat count");
+                parser_free(statement);
+                return NULL;
+            }
+
+            if (current()->type == TOKEN_NEWLINE)
+                advance();
+
+            return statement;
+        }
+
+        if (!word_is("then"))
+        {
+            parser_error(
+                "LOIS: expected 'then' or a closing count followed by 'times'"
+            );
+            parser_free(statement);
+            return NULL;
+        }
+
+        advance();
+
+        Statement *next_body = parse_statement();
+
+        if (!next_body)
+        {
+            parser_error("LOIS: expected statement after 'then' in repeat");
+            parser_free(statement);
+            return NULL;
+        }
+
+
+        body_tail->next = next_body;
+
+        while (body_tail->next)
+            body_tail = body_tail->next;
+    }
 }
 
 
@@ -2167,6 +2285,17 @@ static Statement *parse_repeat_statement(void)
     advance();
 
     Statement *statement = new_statement(STMT_REPEAT);
+
+    /*
+     * A newline immediately after "repeat" starts
+     * the block-style form.
+     */
+    if (current()->type == TOKEN_NEWLINE)
+        return parse_repeat_block(statement);
+
+    /*
+     * Preserve the existing count-then-body syntax.
+     */
     statement->count = parse_expression(0);
 
     if (!statement->count)
@@ -2207,11 +2336,9 @@ static Statement *parse_repeat_statement(void)
         if (current()->type == TOKEN_NEWLINE)
             advance();
 
-        /* A blank line ends the repeat body. */
         if (current()->type == TOKEN_NEWLINE)
             break;
 
-        /* Only an explicit "then" continues the body. */
         if (!word_is("then"))
             break;
 
@@ -2226,13 +2353,13 @@ static Statement *parse_repeat_statement(void)
             return NULL;
         }
 
+
         body_tail->next = next_body;
 
         while (body_tail->next)
             body_tail = body_tail->next;
     }
 
-    /* Keep the repeat body separate from following statements. */
     body_tail->next = NULL;
 
     return statement;
