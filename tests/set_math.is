@@ -1,0 +1,16 @@
+numbers = {10, 20, 30, 40}
+
+sum = numbers(1) + numbers(2)
+output = sum
+
+difference = numbers(4) - numbers(1)
+output = difference
+
+product = numbers(2) * numbers(3)
+output = product
+
+quotient = numbers(4) / numbers(2)
+output = quotient
+
+result = (numbers(1) + numbers(2)) * numbers(3)
+output = result

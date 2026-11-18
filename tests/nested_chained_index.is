@@ -1,0 +1,6 @@
+nested is {{1,2},{3,4}}
+
+inner is nested(1)
+output = inner(2)
+
+output = nested(1)(2)

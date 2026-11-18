@@ -1,0 +1,16 @@
+things is {"text", 123, True}
+
+output is things(1)
+output = things(2)
+output = things(3)
+
+fruits = {"apple", "banana", "cherry"}
+
+output is fruits(1)
+output is fruits(2)
+output is fruits(3)
+
+fruits2 = {"apple", "banana", "cherry"}
+output is fruits2(1)
+output is fruits2(2)
+output is fruits2(3)

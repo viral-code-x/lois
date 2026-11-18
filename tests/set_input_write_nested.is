@@ -1,0 +1,4 @@
+nested is {{10, 20}, {30, 40}}
+input = nested(1)(2)
+input is nested(2)(1)
+output is nested

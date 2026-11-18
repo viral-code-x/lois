@@ -30,14 +30,16 @@ struct Value
 };
 
 Value value_string(const char *text);
+int value_string_try(const char *text, Value *out);
 Value value_number(double number);
 Value value_bool(int boolean);
 Value value_set(void);
 Value value_none(void);
 
-void value_set_add(Value *set, Value item);
+int value_set_add(Value *set, Value *item);
 Value *value_set_get(Value *set, int index);
 
+int value_copy_try(const Value *source, Value *out);
 Value value_copy(const Value *value);
 void value_free(Value *value);
 

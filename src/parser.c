@@ -263,6 +263,7 @@ static int precedence(TokenType type)
  * Logical negation remains the word "not".
  */
 static Expr *parse_primary(void);
+static Expr *parse_expression(int minimum_precedence);
 
 static Expr *parse_postfix(void)
 {
@@ -271,20 +272,70 @@ static Expr *parse_postfix(void)
     if (!expr)
         return NULL;
 
-    while (current()->type == TOKEN_FACTORIAL)
+    while (1)
     {
-        advance();
+        if (current()->type == TOKEN_FACTORIAL)
+        {
+            advance();
 
-        expr = make_unary(
-            expr,
-            TOKEN_FACTORIAL
-        );
+            expr = make_unary(
+                expr,
+                TOKEN_FACTORIAL
+            );
+
+            continue;
+        }
+
+        /*
+         * Chained set indexing:
+         *
+         *     numbers(1)
+         *     nested(1)(2)
+         *     get_set()(2)
+         *
+         * The first call remains EXPR_CALL.
+         * Further parentheses index its result.
+         */
+        if (current()->type == TOKEN_LPAREN)
+        {
+            advance();
+
+            Expr *index = parse_expression(0);
+
+            if (!index)
+            {
+                free_expr(expr);
+                return NULL;
+            }
+
+            if (current()->type != TOKEN_RPAREN)
+            {
+                fprintf(
+                    stderr,
+                    "LOIS: expected ')' after set index\\n"
+                );
+
+                free_expr(expr);
+                free_expr(index);
+                return NULL;
+            }
+
+            advance();
+
+            Expr *indexed = new_expr(EXPR_INDEX);
+            indexed->left = expr;
+            indexed->right = index;
+
+            expr = indexed;
+            continue;
+        }
+
+        break;
     }
 
     return expr;
 }
 
-static Expr *parse_expression(int minimum_precedence);
 static Expr *parse_postfix(void);
 static Statement *parse_statement(void);
 static Statement *new_statement(StatementType type);
@@ -758,64 +809,6 @@ static Expr *parse_primary(void)
             return call;
         }
 
-        /*
-         * Set indexing:
-         *
-         *     numbers1
-         *     numbers2
-         *     numbers3
-         *
-         * A trailing positive integer is interpreted as
-         * a 1-based set index.
-         */
-        {
-            const char *word = token->text;
-            size_t length = strlen(word);
-            size_t split = length;
-
-            while (split > 0 &&
-                   word[split - 1] >= '0' &&
-                   word[split - 1] <= '9')
-            {
-                split--;
-            }
-
-            if (!is_active_function_parameter(word) &&
-                split > 0 &&
-                split < length &&
-                word[split] != '0')
-            {
-                int index = atoi(word + split);
-
-                if (index > 0)
-                {
-                    Expr *target =
-                        new_expr(EXPR_VARIABLE);
-
-                    target->text =
-                        malloc(split + 1);
-
-                    memcpy(
-                        target->text,
-                        word,
-                        split
-                    );
-
-                    target->text[split] = '\0';
-
-                    advance();
-
-                    Expr *expr =
-                        new_expr(EXPR_INDEX);
-
-                    expr->index_target = target;
-                    expr->index = index;
-
-                    return expr;
-                }
-            }
-        }
-
         Expr *expr =
             new_expr(EXPR_VARIABLE);
 
@@ -1281,7 +1274,7 @@ static Statement *parse_input_statement(void)
         if (peek(1)->type == TOKEN_LPAREN)
         {
             statement->target =
-                parse_primary();
+                parse_postfix();
         }
         else
         {
@@ -1318,7 +1311,7 @@ static Statement *parse_input_statement(void)
         if (peek(1)->type == TOKEN_LPAREN)
         {
             statement->target =
-                parse_primary();
+                parse_postfix();
         }
         else
         {
@@ -1419,12 +1412,37 @@ static Statement *parse_assignment_statement(void)
     char *name =
         strdup(current()->text);
 
-    advance();
-
     Statement *statement =
         new_statement(STMT_ASSIGN);
 
     statement->name = name;
+
+    /*
+     * Preserve indexed destinations for writable set elements.
+     * parse_postfix handles both set(index) and chained indexing.
+     */
+    if (peek(1)->type == TOKEN_LPAREN)
+    {
+        statement->target = parse_postfix();
+
+        if (!statement->target)
+            return statement;
+    }
+    else
+    {
+        advance();
+    }
+
+    /*
+     * name{...}
+     *
+     * Direct set declaration. Indexing remains name(...).
+     */
+    if (current()->type == TOKEN_LBRACE)
+    {
+        statement->expression = parse_set_literal();
+        return statement;
+    }
 
     /*
      * name = expression
@@ -2735,12 +2753,6 @@ static void free_expr(Expr *expr)
 
     free_expr(expr->left);
     free_expr(expr->right);
-
-    if (expr->type == EXPR_INDEX)
-    {
-        free_expr(expr->index_target);
-        free_expr(expr->index_expression);
-    }
 
     if (expr->type == EXPR_CALL)
     {

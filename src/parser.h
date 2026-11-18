@@ -10,10 +10,10 @@ typedef enum
     EXPR_BOOLEAN,
     EXPR_VARIABLE,
     EXPR_SET,
-    EXPR_INDEX,
     EXPR_BINARY,
     EXPR_UNARY,
     EXPR_CALL,
+    EXPR_INDEX,
     EXPR_CONDITIONAL
 } ExprType;
 
@@ -40,10 +40,6 @@ struct Expr
     Expr **call_arguments;
     int call_argument_count;
 
-    /* Set indexing: numbers1, numbers2, ... and numbers(1), numbers(i) */
-    Expr *index_target;
-    int index;
-    Expr *index_expression;
 };
 
 typedef enum

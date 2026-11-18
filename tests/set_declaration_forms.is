@@ -1,0 +1,10 @@
+first is {10, 20, 30}
+second = {40, 50, 60}
+third{70, 80, 90}
+
+output = first(1)
+output = second(2)
+output = third(3)
+
+empty{}
+output is empty

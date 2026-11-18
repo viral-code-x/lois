@@ -1,0 +1,6 @@
+source is {{1, 2}, {3, 4}}
+target is {{0}, {0}}
+target(1) = source(1)
+target(1)(2) = 99
+output is source
+output is target

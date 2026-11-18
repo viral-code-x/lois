@@ -1,0 +1,4 @@
+fruits is {"apple", "banana", "cherry"}
+input is fruits(2)
+input is fruits(4)
+output is fruits

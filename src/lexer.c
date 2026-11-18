@@ -463,6 +463,7 @@ TokenList lexer_tokenize(const char *source)
             p += length;
             column += length;
 
+
             continue;
         }
 

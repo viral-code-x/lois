@@ -1,33 +1,37 @@
 #include "value.h"
 
 #include <stdlib.h>
+#include <limits.h>
+#include <stdint.h>
 #include <string.h>
 
-static char *copy_string(const char *text)
+int value_string_try(const char *text, Value *out)
 {
+    if (!out)
+        return 0;
+
+    *out = value_none();
+
+    if (!text)
+        return 0;
+
     size_t length = strlen(text);
+    char *copy = malloc(length + 1);
 
-    char *result = malloc(length + 1);
+    if (!copy)
+        return 0;
 
-    if (!result)
-        exit(1);
+    memcpy(copy, text, length + 1);
 
-    memcpy(result, text, length + 1);
-
-    return result;
+    out->type = VALUE_STRING;
+    out->string = copy;
+    return 1;
 }
 
 Value value_string(const char *text)
 {
-    Value value;
-
-    value.type = VALUE_STRING;
-    value.string = copy_string(text);
-    value.number = 0;
-    value.set.items = NULL;
-    value.set.count = 0;
-    value.set.capacity = 0;
-
+    Value value = value_none();
+    value_string_try(text, &value);
     return value;
 }
 
@@ -89,39 +93,63 @@ Value value_none(void)
     return value;
 }
 
-void value_set_add(Value *set, Value item)
+int value_set_add(Value *set, Value *item)
 {
-    if (!set || set->type != VALUE_SET)
-        return;
+    if (!set || set->type != VALUE_SET || !item)
+        return 0;
+
+    if (set->set.count < 0 ||
+        set->set.capacity < 0 ||
+        set->set.capacity < set->set.count ||
+        (set->set.capacity == 0 && set->set.items != NULL) ||
+        (set->set.capacity > 0 && set->set.items == NULL))
+        return 0;
+
+    if (set->set.count == INT_MAX)
+        return 0;
 
     if (set->set.count >= set->set.capacity)
     {
-        int new_capacity =
-            set->set.capacity == 0
-                ? 4
-                : set->set.capacity * 2;
+        int new_capacity;
 
-        Value *new_items =
-            realloc(
-                set->set.items,
-                sizeof(Value) * new_capacity
-            );
+        if (set->set.capacity == 0)
+            new_capacity = 4;
+        else if (set->set.capacity > INT_MAX / 2)
+            new_capacity = INT_MAX;
+        else
+            new_capacity = set->set.capacity * 2;
+
+        if ((size_t)new_capacity > SIZE_MAX / sizeof(Value))
+            return 0;
+
+        Value *new_items = realloc(
+            set->set.items,
+            sizeof(Value) * (size_t)new_capacity
+        );
 
         if (!new_items)
-            exit(1);
+            return 0;
 
         set->set.items = new_items;
         set->set.capacity = new_capacity;
     }
 
-    set->set.items[
-        set->set.count++
-    ] = item;
+    set->set.items[set->set.count++] = *item;
+    *item = value_none();
+
+    return 1;
 }
 
 Value *value_set_get(Value *set, int index)
 {
     if (!set || set->type != VALUE_SET)
+        return NULL;
+
+    if (set->set.count < 0 ||
+        set->set.capacity < 0 ||
+        set->set.capacity < set->set.count ||
+        (set->set.capacity == 0 && set->set.items != NULL) ||
+        (set->set.capacity > 0 && set->set.items == NULL))
         return NULL;
 
     /*
@@ -136,38 +164,76 @@ Value *value_set_get(Value *set, int index)
     return &set->set.items[index - 1];
 }
 
-Value value_copy(const Value *value)
+int value_copy_try(const Value *source, Value *out)
 {
-    if (!value)
-        return value_none();
+    if (!source || !out || source == out)
+        return 0;
 
-    if (value->type == VALUE_STRING)
-        return value_string(value->string);
+    *out = value_none();
 
-    if (value->type == VALUE_NUMBER)
-        return value_number(value->number);
-
-    if (value->type == VALUE_BOOL)
-        return value_bool((int)value->number);
-
-    if (value->type == VALUE_SET)
+    switch (source->type)
     {
-        Value copy = value_set();
+        case VALUE_NONE:
+            *out = value_none();
+            return 1;
 
-        for (int i = 0; i < value->set.count; i++)
+        case VALUE_NUMBER:
+            *out = value_number(source->number);
+            return 1;
+
+        case VALUE_BOOL:
+            *out = value_bool((int)source->number);
+            return 1;
+
+        case VALUE_STRING:
+            return value_string_try(source->string, out);
+
+        case VALUE_SET:
         {
-            value_set_add(
-                &copy,
-                value_copy(
-                    &value->set.items[i]
-                )
-            );
+            if (source->set.count < 0 ||
+                source->set.capacity < 0 ||
+                source->set.capacity < source->set.count ||
+                (source->set.capacity == 0 && source->set.items != NULL) ||
+                (source->set.capacity > 0 && source->set.items == NULL))
+                return 0;
+
+            Value copy = value_set();
+
+            for (int i = 0; i < source->set.count; i++)
+            {
+                Value item = value_none();
+
+                if (!value_copy_try(&source->set.items[i], &item))
+                {
+                    value_free(&copy);
+                    return 0;
+                }
+
+                if (!value_set_add(&copy, &item))
+                {
+                    value_free(&item);
+                    value_free(&copy);
+                    return 0;
+                }
+            }
+
+            *out = copy;
+            return 1;
         }
 
-        return copy;
+        default:
+            return 0;
     }
+}
 
-    return value_none();
+Value value_copy(const Value *value)
+{
+    Value copy = value_none();
+
+    if (!value_copy_try(value, &copy))
+        return value_none();
+
+    return copy;
 }
 
 void value_free(Value *value)
@@ -175,22 +241,32 @@ void value_free(Value *value)
     if (!value)
         return;
 
-    if (value->string)
-        free(value->string);
-
-    value->string = NULL;
-
-    if (value->type == VALUE_SET)
+    if (value->type == VALUE_STRING)
     {
-        for (int i = 0; i < value->set.count; i++)
-            value_free(
-                &value->set.items[i]
-            );
+        free(value->string);
+    }
+    else if (value->type == VALUE_SET)
+    {
+        int count = value->set.count;
+        int capacity = value->set.capacity;
+
+        if (count < 0)
+            count = 0;
+
+        if (capacity < 0)
+            capacity = 0;
+
+        if (count > capacity)
+            count = capacity;
+
+        if (value->set.items)
+        {
+            for (int i = 0; i < count; i++)
+                value_free(&value->set.items[i]);
+        }
 
         free(value->set.items);
-
-        value->set.items = NULL;
-        value->set.count = 0;
-        value->set.capacity = 0;
     }
+
+    *value = value_none();
 }

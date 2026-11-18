@@ -1,0 +1,3 @@
+numbers is {10, 20}
+numbers(4) = 40
+output is numbers

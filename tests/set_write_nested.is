@@ -1,0 +1,6 @@
+nested is {{10, 20}, {30, 40}}
+nested(1)(2) = 99
+nested(2)(1) = 88
+output is nested
+output = nested(1)(2)
+output = nested(2)(1)

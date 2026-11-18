@@ -1,0 +1,12 @@
+first is {"apple", "banana", "cherry"}
+second = {"red", 123, True}
+
+output is first
+output is first(1)
+output is first(2)
+output is first(3)
+
+output is second
+output is second(1)
+output = second(2)
+output is second(3)

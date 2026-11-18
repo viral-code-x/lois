@@ -1,0 +1,12 @@
+numbers is {10,20,30}
+
+ChangeFirst(x) = x(1) + 100
+
+output = ChangeFirst(numbers)
+output = numbers(1)
+output = numbers(2)
+
+Nested(x) = x(1)(2)
+
+nested is {{1,2},{3,4}}
+output = Nested(nested)
