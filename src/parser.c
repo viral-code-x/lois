@@ -214,6 +214,56 @@ static Expr *make_call(
     return expr;
 }
 
+static int is_comparison_operator(TokenType type)
+{
+    return
+        type == TOKEN_GREATER ||
+        type == TOKEN_LESS ||
+        type == TOKEN_GREATER_EQUAL ||
+        type == TOKEN_LESS_EQUAL ||
+        type == TOKEN_EQUAL_EQUAL ||
+        type == TOKEN_NOT_EQUAL;
+}
+
+static void append_comparison(
+    Expr *chain,
+    Expr *operand,
+    TokenType operator
+)
+{
+    int count = chain->chain_count;
+
+    Expr **operands = realloc(
+        chain->chain_operands,
+        (size_t)(count + 1) * sizeof(Expr *)
+    );
+
+    if (!operands)
+    {
+        fprintf(stderr, "LOIS: out of memory\n");
+        exit(1);
+    }
+
+    chain->chain_operands = operands;
+
+    TokenType *operators = realloc(
+        chain->chain_operators,
+        (size_t)count * sizeof(TokenType)
+    );
+
+    if (!operators)
+    {
+        fprintf(stderr, "LOIS: out of memory\n");
+        exit(1);
+    }
+
+    chain->chain_operators = operators;
+    chain->chain_operators[count - 1] = operator;
+    chain->chain_operands[count] = operand;
+    chain->chain_count++;
+}
+
+
 static int precedence(TokenType type)
 {
     switch (type)
@@ -572,7 +622,7 @@ static Expr *parse_primary(void)
         advance();
 
         Expr *right =
-            parse_postfix();
+            parse_expression(5);
 
         if (!right)
             return NULL;
@@ -600,7 +650,7 @@ static Expr *parse_primary(void)
         advance();
 
         Expr *right =
-            parse_postfix();
+            parse_expression(5);
 
         if (!right)
             return NULL;
@@ -620,7 +670,14 @@ static Expr *parse_primary(void)
             new_expr(EXPR_LITERAL);
 
         expr->text =
-            strdup(token->text);
+            strdup(token->text ? token->text : "");
+
+        if (!expr->text)
+        {
+            free(expr);
+            parser_error("LOIS: out of memory while reading string");
+            return NULL;
+        }
 
         advance();
 
@@ -868,24 +925,19 @@ static Expr *parse_expression(int minimum_precedence)
     if (word_is("if"))
         return parse_conditional_expression();
 
-    Expr *left =
-        parse_postfix();
+    Expr *left = parse_postfix();
 
     if (!left)
         return NULL;
 
+    /*
+     * This pointer tracks a chain created at this parsing level.
+     * Parenthesized chains are not accidentally flattened.
+     */
+    Expr *comparison_chain = NULL;
+
     while (1)
     {
-        /*
-         * Stop expressions at statement boundaries.
-         *
-         * Example:
-         *
-         *     if True
-         *     then output is hello
-         *
-         * "then" is not part of the condition.
-         */
         if (
             current()->type == TOKEN_NEWLINE ||
             word_is("then") ||
@@ -896,20 +948,9 @@ static Expr *parse_expression(int minimum_precedence)
             break;
         }
 
-        TokenType operator =
-            current()->type;
+        TokenType operator = current()->type;
+        int p = precedence(operator);
 
-        int p =
-            precedence(operator);
-
-        /*
-         * Logical operators are words.
-         *
-         * They deliberately have lower precedence
-         * than comparison operators.
-         *
-         * "and" binds tighter than "or".
-         */
         if (word_is("and"))
         {
             operator = TOKEN_AND;
@@ -926,26 +967,56 @@ static Expr *parse_expression(int minimum_precedence)
 
         advance();
 
-        /*
-         * ^ is right associative.
-         */
         int next_precedence =
-            operator == TOKEN_CARET
-                ? p
-                : p + 1;
+            operator == TOKEN_CARET ? p : p + 1;
 
-        Expr *right =
-            parse_expression(next_precedence);
+        Expr *right = parse_expression(next_precedence);
 
         if (!right)
             break;
 
-        left =
-            make_binary(
-                left,
-                right,
-                operator
-            );
+        if (is_comparison_operator(operator))
+        {
+            if (!comparison_chain)
+            {
+                comparison_chain =
+                    new_expr(EXPR_COMPARE_CHAIN);
+
+                comparison_chain->line = left->line;
+                comparison_chain->chain_operands =
+                    malloc(2 * sizeof(Expr *));
+                comparison_chain->chain_operators =
+                    malloc(sizeof(TokenType));
+
+                if (
+                    !comparison_chain->chain_operands ||
+                    !comparison_chain->chain_operators
+                )
+                {
+                    fprintf(stderr, "LOIS: out of memory\\n");
+                    exit(1);
+                }
+
+                comparison_chain->chain_operands[0] = left;
+                comparison_chain->chain_operands[1] = right;
+                comparison_chain->chain_operators[0] = operator;
+                comparison_chain->chain_count = 2;
+
+                left = comparison_chain;
+            }
+            else
+            {
+                append_comparison(
+                    comparison_chain,
+                    right,
+                    operator
+                );
+            }
+        }
+        else
+        {
+            left = make_binary(left, right, operator);
+        }
     }
 
     return left;
@@ -972,7 +1043,9 @@ static Expr *parse_output(void)
         current()->type == TOKEN_STRING ||
         current()->type == TOKEN_NUMBER ||
         current()->type == TOKEN_LPAREN ||
-        current()->type == TOKEN_MINUS
+        current()->type == TOKEN_MINUS ||
+        current()->type == TOKEN_NOT ||
+        current()->type == TOKEN_FACTORIAL
     )
     {
         /*
@@ -1506,6 +1579,49 @@ static Statement *parse_assignment_statement(void)
     advance();
 
     /*
+     * Implicit single-parameter function declaration:
+     *
+     *     abs is function of if x >= 0 then x else 0 - x
+     *
+     * The expression uses x as its sole parameter.
+     */
+    if (word_is("function") && peek_word_is(1, "of"))
+    {
+        advance(); /* function */
+        advance(); /* of */
+
+        statement->type = STMT_FUNCTION;
+        statement->parameter_count = 1;
+        statement->parameters = calloc(1, sizeof(char *));
+
+        if (!statement->parameters)
+        {
+            fprintf(stderr, "LOIS: out of memory\\n");
+            exit(1);
+        }
+
+        statement->parameters[0] = strdup("x");
+
+        active_function_parameters = statement->parameters;
+        active_function_parameter_count = 1;
+
+        statement->expression = parse_expression(0);
+
+        active_function_parameters = NULL;
+        active_function_parameter_count = 0;
+
+        if (!statement->expression)
+        {
+            parser_error("LOIS: expected expression after 'function of'");
+            parser_free(statement);
+            return NULL;
+        }
+
+        return statement;
+    }
+
+
+    /*
      * A lone type keyword casts an existing variable.
      * If the variable does not exist, the interpreter
      * preserves the old default-initialization behavior.
@@ -1839,6 +1955,7 @@ static Statement *parse_if_statement(void)
         if (word_is("if"))
         {
             statement->else_body = parse_if_statement();
+            statement->else_body_kind = IF_CHAIN_ELSE_IF;
 
             if (!statement->else_body)
             {
@@ -1850,6 +1967,7 @@ static Statement *parse_if_statement(void)
         }
 
         statement->else_body = parse_single_body();
+        statement->else_body_kind = IF_CHAIN_ELSE;
 
         if (!statement->else_body)
         {
@@ -1874,6 +1992,7 @@ static Statement *parse_if_statement(void)
         advance(); /* but */
 
         statement->else_body = parse_if_statement();
+        statement->else_body_kind = IF_CHAIN_BUT_IF;
 
         if (!statement->else_body)
         {
@@ -2546,6 +2665,32 @@ static Statement *parse_statement(void)
 
 
 
+    /*
+     * Branch keywords are only valid as part of an if-chain.
+     * Do not let orphan branches fall through as assignments.
+     */
+    if (word_is("else"))
+    {
+        parser_error("LOIS: 'else' must belong to an if statement");
+        while (
+            current()->type != TOKEN_NEWLINE &&
+            current()->type != TOKEN_EOF
+        )
+            advance();
+        return NULL;
+    }
+
+    if (word_is("but") && peek_word_is(1, "if"))
+    {
+        parser_error("LOIS: 'but if' must belong to an if statement");
+        while (
+            current()->type != TOKEN_NEWLINE &&
+            current()->type != TOKEN_EOF
+        )
+            advance();
+        return NULL;
+    }
+
     if (current()->type == TOKEN_WORD)
         return parse_assignment_statement();
 
@@ -2765,6 +2910,15 @@ static void free_expr(Expr *expr)
     }
 
     free(expr->text);
+    if (expr->type == EXPR_COMPARE_CHAIN)
+    {
+        for (int i = 0; i < expr->chain_count; i++)
+            free_expr(expr->chain_operands[i]);
+
+        free(expr->chain_operands);
+        free(expr->chain_operators);
+    }
+
     free(expr);
 }
 

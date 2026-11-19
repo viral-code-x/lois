@@ -215,6 +215,126 @@ static Variable *find_variable(const char *name)
 }
 
 
+static int lois_is_comparison_operator(TokenType type)
+{
+    return
+        type == TOKEN_GREATER ||
+        type == TOKEN_LESS ||
+        type == TOKEN_GREATER_EQUAL ||
+        type == TOKEN_LESS_EQUAL ||
+        type == TOKEN_EQUAL_EQUAL ||
+        type == TOKEN_NOT_EQUAL ||
+        type == TOKEN_ASSIGN;
+}
+
+static int lois_values_equal(const Value *left, const Value *right)
+{
+    if (
+        (left->type == VALUE_NUMBER || left->type == VALUE_BOOL) &&
+        (right->type == VALUE_NUMBER || right->type == VALUE_BOOL)
+    )
+        return left->number == right->number;
+
+    if (left->type != right->type)
+        return 0;
+
+    switch (left->type)
+    {
+        case VALUE_STRING:
+            return strcmp(
+                left->string ? left->string : "",
+                right->string ? right->string : ""
+            ) == 0;
+
+        case VALUE_NONE:
+            return 1;
+
+        case VALUE_SET:
+            if (left->set.count != right->set.count)
+                return 0;
+
+            for (int i = 0; i < left->set.count; i++)
+            {
+                if (!lois_values_equal(
+                    &left->set.items[i],
+                    &right->set.items[i]
+                ))
+                    return 0;
+            }
+            return 1;
+
+        case VALUE_NUMBER:
+        case VALUE_BOOL:
+            return left->number == right->number;
+    }
+
+    return 0;
+}
+
+/* Returns -1 when the comparison is invalid. */
+static int lois_compare_values(
+    Expr *expr,
+    TokenType operator,
+    Value *left,
+    Value *right
+)
+{
+    if (
+        operator == TOKEN_EQUAL_EQUAL ||
+        operator == TOKEN_ASSIGN
+    )
+        return lois_values_equal(left, right);
+
+    if (operator == TOKEN_NOT_EQUAL)
+        return !lois_values_equal(left, right);
+
+    int numeric_left =
+        left->type == VALUE_NUMBER || left->type == VALUE_BOOL;
+    int numeric_right =
+        right->type == VALUE_NUMBER || right->type == VALUE_BOOL;
+
+    if (numeric_left && numeric_right)
+    {
+        double a = left->number;
+        double b = right->number;
+
+        switch (operator)
+        {
+            case TOKEN_GREATER:       return a > b;
+            case TOKEN_LESS:          return a < b;
+            case TOKEN_GREATER_EQUAL: return a >= b;
+            case TOKEN_LESS_EQUAL:    return a <= b;
+            default:                  break;
+        }
+    }
+
+    if (
+        left->type == VALUE_STRING &&
+        right->type == VALUE_STRING
+    )
+    {
+        int result = strcmp(
+            left->string ? left->string : "",
+            right->string ? right->string : ""
+        );
+
+        switch (operator)
+        {
+            case TOKEN_GREATER:       return result > 0;
+            case TOKEN_LESS:          return result < 0;
+            case TOKEN_GREATER_EQUAL: return result >= 0;
+            case TOKEN_LESS_EQUAL:    return result <= 0;
+            default:                  break;
+        }
+    }
+
+    set_runtime_error(
+        expr,
+        "these value types cannot be ordered against each other"
+    );
+    return -1;
+}
+
 static Value evaluate(Expr *expr);
 
 /*
@@ -583,22 +703,86 @@ static void print_value(Value *value)
 }
 static int truthy(Value *value)
 {
-    if (value->type == VALUE_NUMBER)
-        return value->number != 0;
+    if (!value)
+        return 0;
 
-    if (value->type == VALUE_BOOL)
-        return value->number != 0;
+    switch (value->type)
+    {
+        case VALUE_NUMBER:
+        case VALUE_BOOL:
+            return value->number != 0;
 
-    if (value->type == VALUE_STRING)
-        return value->string[0] != '\0';
+        case VALUE_STRING:
+            return value->string && value->string[0] != '\0';
 
-    return 0;
+        case VALUE_SET:
+            return value->set.count > 0;
+
+        case VALUE_NONE:
+        default:
+            return 0;
+    }
 }
 
 static Value evaluate(Expr *expr)
 {
     if (!expr)
         return value_none();
+
+    /*
+     * Chained comparisons:
+     *     1 < age < 18
+     *
+     * Each operand is evaluated once. Stop at the first
+     * false comparison.
+     */
+    if (expr->type == EXPR_COMPARE_CHAIN)
+    {
+        if (expr->chain_count < 2)
+            return value_bool(1);
+
+        Value previous = evaluate(expr->chain_operands[0]);
+
+        if (previous.type == VALUE_NONE)
+            return value_none();
+
+        for (int i = 0; i < expr->chain_count - 1; i++)
+        {
+            Value next = evaluate(expr->chain_operands[i + 1]);
+
+            if (next.type == VALUE_NONE)
+            {
+                value_free(&previous);
+                return value_none();
+            }
+
+            int result = lois_compare_values(
+                expr,
+                expr->chain_operators[i],
+                &previous,
+                &next
+            );
+
+            value_free(&previous);
+
+            if (result < 0)
+            {
+                value_free(&next);
+                return value_none();
+            }
+
+            if (!result)
+            {
+                value_free(&next);
+                return value_bool(0);
+            }
+
+            previous = next;
+        }
+
+        value_free(&previous);
+        return value_bool(1);
+    }
 
     if (expr->type == EXPR_LITERAL)
         return value_string(expr->text);
@@ -1294,56 +1478,40 @@ static Value evaluate(Expr *expr)
     if (expr->type == EXPR_BINARY)
     {
         /*
-         * Logical operators.
+         * Python-style logical operators:
          *
-         * Always return real boolean values:
-         * True / False
+         *     left and right  -> left if left is falsey, else right
+         *     left or right   -> left if left is truthy, else right
+         *
+         * The unused operand is never evaluated. The selected Value
+         * is returned directly, preserving its original type.
          */
         if (
             expr->operator == TOKEN_AND ||
             expr->operator == TOKEN_OR
         )
         {
-            Value left =
-                evaluate(expr->left);
+            Value left = evaluate(expr->left);
 
-            /*
-             * Short-circuit AND/OR.
-             */
-            int left_true =
-                truthy(&left);
+            if (runtime_error)
+                return left;
+
+            int left_true = truthy(&left);
 
             if (
                 expr->operator == TOKEN_AND &&
                 !left_true
             )
-            {
-                value_free(&left);
-                return value_bool(0);
-            }
+                return left;
 
             if (
                 expr->operator == TOKEN_OR &&
                 left_true
             )
-            {
-                value_free(&left);
-                return value_bool(1);
-            }
+                return left;
 
             value_free(&left);
-
-            Value right =
-                evaluate(expr->right);
-
-            int right_true =
-                truthy(&right);
-
-            value_free(&right);
-
-            return value_bool(
-                right_true ? 1 : 0
-            );
+            return evaluate(expr->right);
         }
 
         Value left =
@@ -1357,6 +1525,24 @@ static Value evaluate(Expr *expr)
 
         if (right.type == VALUE_NONE)
             return value_none();
+
+                if (lois_is_comparison_operator(expr->operator))
+        {
+            int result = lois_compare_values(
+                expr,
+                expr->operator,
+                &left,
+                &right
+            );
+
+            value_free(&left);
+            value_free(&right);
+
+            if (result < 0)
+                return value_none();
+
+            return value_bool(result);
+        }
 
         /*
          * String concatenation.
@@ -2239,25 +2425,70 @@ static void execute_repeat(Statement *statement)
 
 static void execute_if(Statement *statement)
 {
-    Value condition =
-        evaluate(statement->condition);
+    if (!statement)
+        return;
 
-    int true_value =
-        truthy(&condition);
-
+    Value condition = evaluate(statement->condition);
+    int true_value = truthy(&condition);
     value_free(&condition);
+
+    if (runtime_error)
+        return;
 
     if (true_value)
     {
-        execute_statement(
-            statement->body
-        );
+        execute_statement(statement->body);
+        return;
     }
-    else if (statement->else_body)
+
+    Statement *cursor = statement;
+    Statement *matched_but_if = NULL;
+    Statement *else_fallback = NULL;
+
+    while (cursor && cursor->else_body)
     {
-        execute_statement(
-            statement->else_body
-        );
+        Statement *branch = cursor->else_body;
+
+        if (cursor->else_body_kind == IF_CHAIN_ELSE)
+        {
+            else_fallback = branch;
+            break;
+        }
+
+        if (branch->type != STMT_IF)
+            break;
+
+        Value branch_condition = evaluate(branch->condition);
+        int branch_true = truthy(&branch_condition);
+        value_free(&branch_condition);
+
+        if (runtime_error)
+            return;
+
+        if (cursor->else_body_kind == IF_CHAIN_ELSE_IF)
+        {
+            if (branch_true)
+            {
+                execute_statement(branch->body);
+                return;
+            }
+        }
+        else if (cursor->else_body_kind == IF_CHAIN_BUT_IF)
+        {
+            if (branch_true && !matched_but_if)
+                matched_but_if = branch;
+        }
+
+        cursor = branch;
+    }
+
+    if (matched_but_if)
+    {
+        execute_statement(matched_but_if->body);
+    }
+    else if (else_fallback)
+    {
+        execute_statement(else_fallback);
     }
 }
 
