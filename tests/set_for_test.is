@@ -1,0 +1,7 @@
+numbers = {10, 20, 30, 40}
+total = 0
+
+for i = 1, 4, i++
+then total = total + numbers(i)
+
+output = total

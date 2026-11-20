@@ -1,0 +1,4 @@
+for i = 1, 4, i++
+then output = i
+then if i % 2 == 0
+then output is even

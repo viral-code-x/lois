@@ -14,7 +14,8 @@ typedef enum
     EXPR_UNARY,
     EXPR_CALL,
     EXPR_INDEX,
-    EXPR_CONDITIONAL
+    EXPR_CONDITIONAL,
+    EXPR_COMPARE_CHAIN
 } ExprType;
 
 typedef struct Expr Expr;
@@ -40,6 +41,11 @@ struct Expr
     Expr **call_arguments;
     int call_argument_count;
 
+    /* Chained comparisons: a < b <= c */
+    Expr **chain_operands;
+    TokenType *chain_operators;
+    int chain_count;
+
 };
 
 typedef enum
@@ -58,6 +64,14 @@ typedef enum
     STMT_STOP,
     STMT_SKIP
 } StatementType;
+
+typedef enum
+{
+    IF_CHAIN_NONE = 0,
+    IF_CHAIN_ELSE_IF,
+    IF_CHAIN_BUT_IF,
+    IF_CHAIN_ELSE
+} IfChainKind;
 
 typedef struct Statement Statement;
 
@@ -95,6 +109,8 @@ struct Statement
 
     Statement *body;
     Statement *else_body;
+
+    int else_body_kind;
 
     Statement *next;
 };

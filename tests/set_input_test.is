@@ -1,0 +1,17 @@
+numbers = {10, 20, 30}
+
+output is "Original set:"
+output is numbers
+
+output is "Enter a number to replace element 2:"
+input = numbers(2)
+
+output is "After replacement:"
+output is numbers
+
+output is "Enter a number to append as element 4:"
+input = numbers(4)
+
+output is "After appending:"
+output is numbers
+output = numbers(4)

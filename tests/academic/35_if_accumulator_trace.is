@@ -1,0 +1,5 @@
+total = 0
+for i = 1, 5, i++
+then if i % 2 == 0
+then total = total + i
+then output = total

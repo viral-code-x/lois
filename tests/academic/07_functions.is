@@ -1,0 +1,4 @@
+Square(x) = x * x
+output = Square(5)
+output = Square(8)
+output = Square(10)

@@ -1,0 +1,5 @@
+x = 7
+if x > 5
+then if x < 10
+then output is inside both conditions
+else output is inside outer condition only

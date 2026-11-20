@@ -1,0 +1,5 @@
+x = 3
+if x > 5
+then output is greater
+else output is smaller
+output is finished

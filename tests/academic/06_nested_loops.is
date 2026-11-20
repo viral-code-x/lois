@@ -1,0 +1,3 @@
+for i = 1, 3, i++
+then for j = 1, 3, j++
+then output = i * j

@@ -1,0 +1,7 @@
+x = 7
+if x > 5
+then output is greater
+x = 3
+if x > 5
+then output is wrong
+else output is smaller

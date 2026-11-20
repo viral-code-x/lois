@@ -1,0 +1,7 @@
+values is {}
+values(1) = 0
+
+if 2 > 1
+then values(1) = 7
+
+output = values(1)

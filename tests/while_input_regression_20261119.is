@@ -1,0 +1,12 @@
+students is {}
+i = 1
+
+while i <= 3
+then output is "BODY"
+then input is students(i) with "Name: "
+then i++
+
+output is "DONE"
+output is students(1)
+output is students(2)
+output is students(3)

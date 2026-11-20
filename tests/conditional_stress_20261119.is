@@ -1,0 +1,87 @@
+output is "TEST 1: MULTIPLE ELSE IF"
+x = 3
+
+if x == 1
+then output is "FAIL_1"
+else if x == 2
+then output is "FAIL_2"
+else if x == 3
+then output is "PASS_MULTIPLE_ELSE_IF"
+else output is "FAIL_FALLBACK"
+
+output is "TEST 2: MULTIPLE BUT IF"
+x = 3
+
+if x == 1
+then output is "FAIL_ROOT"
+but if x == 2
+then output is "FAIL_BUT_1"
+but if x == 3
+then output is "PASS_MULTIPLE_BUT_IF"
+but if x == 3
+then output is "FAIL_BUT_ORDER"
+
+output is "TEST 3: MIXED PRIORITY"
+x = 3
+
+if x == 1
+then output is "FAIL_ROOT"
+but if x == 3
+then output is "FAIL_BUT_SHOULD_NOT_WIN"
+else if x == 3
+then output is "PASS_ELSE_IF_PRIORITY"
+
+output is "TEST 4: ELSE IF WRITTEN FIRST"
+x = 3
+
+if x == 1
+then output is "FAIL_ROOT"
+else if x == 3
+then output is "PASS_FIRST_ELSE_IF"
+else if x == 3
+then output is "FAIL_SECOND_ELSE_IF"
+but if x == 3
+then output is "FAIL_BUT"
+
+output is "TEST 5: NESTED CONDITIONAL"
+x = 10
+y = 20
+
+if x == 10
+then if y == 20
+then output is "PASS_INNER_IF"
+else output is "FAIL_INNER_ELSE"
+
+output is "TEST 6: NESTED OUTER ELSE"
+x = 10
+y = 30
+
+if x == 10
+then if y == 20
+then output is "FAIL_INNER_IF"
+else output is "PASS_INNER_ELSE"
+else output is "FAIL_OUTER_ELSE"
+
+output is "TEST 7: THREE LEVELS"
+a = 1
+b = 2
+c = 3
+
+if a == 1
+then if b == 2
+then if c == 3
+then output is "PASS_THREE_LEVELS"
+else output is "FAIL_LEVEL_3"
+else output is "FAIL_LEVEL_2"
+else output is "FAIL_LEVEL_1"
+
+output is "TEST 8: FALSE ROOT AND FALSE ALTERNATIVES"
+x = 99
+
+if x == 1
+then output is "FAIL_ROOT"
+else if x == 2
+then output is "FAIL_ELSE_IF"
+but if x == 3
+then output is "FAIL_BUT_IF"
+else output is "PASS_FINAL_ELSE"

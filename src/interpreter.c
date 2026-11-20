@@ -1263,7 +1263,23 @@ static Value evaluate(Expr *expr)
 
         double result;
 
-        if (strcasecmp(expr->call_name, "root") == 0)
+        if (strcasecmp(expr->call_name, "rad") == 0)
+        {
+            /*
+             * Convert degrees to radians.
+             * A value already marked as radians stays unchanged.
+             */
+            result = argument.is_radians
+                ? x
+                : x * acos(-1.0) / 180.0;
+
+            value_free(&argument);
+
+            Value converted = value_number(result);
+            converted.is_radians = 1;
+            return converted;
+        }
+        else if (strcasecmp(expr->call_name, "root") == 0)
         {
             if (x < 0)
             {
@@ -1303,15 +1319,27 @@ static Value evaluate(Expr *expr)
         }
         else if (strcasecmp(expr->call_name, "sin") == 0)
         {
-            result = sin(x);
+            double angle = argument.is_radians
+                ? x
+                : x * acos(-1.0) / 180.0;
+
+            result = sin(angle);
         }
         else if (strcasecmp(expr->call_name, "cos") == 0)
         {
-            result = cos(x);
+            double angle = argument.is_radians
+                ? x
+                : x * acos(-1.0) / 180.0;
+
+            result = cos(angle);
         }
         else if (strcasecmp(expr->call_name, "tan") == 0)
         {
-            if (fabs(cos(x)) < 1e-12)
+            double angle = argument.is_radians
+                ? x
+                : x * acos(-1.0) / 180.0;
+
+            if (fabs(cos(angle)) < 1e-12)
             {
                 set_runtime_error(
                     expr,
@@ -1322,7 +1350,7 @@ static Value evaluate(Expr *expr)
                 return value_none();
             }
 
-            result = tan(x);
+            result = tan(angle);
         }
         else if (strcasecmp(expr->call_name, "log") == 0)
         {
@@ -1524,7 +1552,10 @@ static Value evaluate(Expr *expr)
             evaluate(expr->right);
 
         if (right.type == VALUE_NONE)
+        {
+            value_free(&left);
             return value_none();
+        }
 
                 if (lois_is_comparison_operator(expr->operator))
         {
@@ -1548,6 +1579,8 @@ static Value evaluate(Expr *expr)
          * String concatenation.
          *
          * Adjacent output pieces use + internally.
+         * Allocate the complete result dynamically instead of
+         * silently truncating long strings in fixed-size buffers.
          */
         if (
             expr->operator == TOKEN_PLUS &&
@@ -1557,61 +1590,105 @@ static Value evaluate(Expr *expr)
             )
         )
         {
-            char left_text[2048];
-            char right_text[2048];
+            char left_number[64];
+            char right_number[64];
+
+            const char *left_text;
+            const char *right_text;
 
             if (left.type == VALUE_STRING)
             {
-                snprintf(
-                    left_text,
-                    sizeof(left_text),
-                    "%s",
-                    left.string
-                );
+                left_text = left.string ? left.string : "";
             }
             else
             {
                 snprintf(
-                    left_text,
-                    sizeof(left_text),
+                    left_number,
+                    sizeof(left_number),
                     "%.12g",
                     left.number
                 );
+                left_text = left_number;
             }
 
             if (right.type == VALUE_STRING)
             {
-                snprintf(
-                    right_text,
-                    sizeof(right_text),
-                    "%s",
-                    right.string
-                );
+                right_text = right.string ? right.string : "";
             }
             else
             {
                 snprintf(
-                    right_text,
-                    sizeof(right_text),
+                    right_number,
+                    sizeof(right_number),
                     "%.12g",
                     right.number
                 );
+                right_text = right_number;
             }
 
-            char result[4096];
+            size_t left_length = strlen(left_text);
+            size_t right_length = strlen(right_text);
+            size_t maximum = (size_t)-1;
 
-            snprintf(
-                result,
-                sizeof(result),
-                "%s %s",
-                left_text,
-                right_text
+            if (
+                right_length > maximum - 2 ||
+                left_length > maximum - right_length - 2
+            )
+            {
+                set_runtime_error(
+                    expr,
+                    "string concatenation result is too large"
+                );
+
+                value_free(&left);
+                value_free(&right);
+                return value_none();
+            }
+
+            size_t result_length =
+                left_length + 1 + right_length;
+
+            char *result = malloc(result_length + 1);
+
+            if (!result)
+            {
+                set_runtime_error(
+                    expr,
+                    "out of memory while concatenating strings"
+                );
+
+                value_free(&left);
+                value_free(&right);
+                return value_none();
+            }
+
+            memcpy(result, left_text, left_length);
+            result[left_length] = ' ';
+
+            memcpy(
+                result + left_length + 1,
+                right_text,
+                right_length
             );
 
+            result[result_length] = '\0';
+
+            Value combined = value_string(result);
+
+            free(result);
             value_free(&left);
             value_free(&right);
 
-            return value_string(result);
+            if (combined.type == VALUE_NONE)
+            {
+                set_runtime_error(
+                    expr,
+                    "out of memory while creating concatenated string"
+                );
+                return value_none();
+            }
+
+            return combined;
         }
 
         /*
@@ -1768,7 +1845,7 @@ static Value evaluate(Expr *expr)
                     {
                         set_runtime_error(
                             expr,
-                            "addition requires numbers"
+                            "a number is expected for arithmetic"
                         );
 
                         value_free(&left);
@@ -1804,7 +1881,7 @@ static Value evaluate(Expr *expr)
                     {
                         set_runtime_error(
                             expr,
-                            "subtraction requires numbers"
+                            "a number is expected for arithmetic"
                         );
 
                         value_free(&left);
@@ -2127,57 +2204,70 @@ static Value evaluate_output_expr(Expr *expr)
             right.type == VALUE_STRING
         )
         {
-            char left_text[1024];
-            char right_text[1024];
+            char left_number[64];
+            char right_number[64];
+
+            const char *left_text = "";
+            const char *right_text = "";
 
             if (left.type == VALUE_STRING)
-                snprintf(
-                    left_text,
-                    sizeof(left_text),
-                    "%s",
-                    left.string
-                );
+                left_text = left.string ? left.string : "";
             else if (left.type == VALUE_NUMBER)
+            {
                 snprintf(
-                    left_text,
-                    sizeof(left_text),
+                    left_number,
+                    sizeof(left_number),
                     "%.15g",
                     left.number
                 );
-            else
-                left_text[0] = '\0';
+                left_text = left_number;
+            }
 
             if (right.type == VALUE_STRING)
-                snprintf(
-                    right_text,
-                    sizeof(right_text),
-                    "%s",
-                    right.string
-                );
+                right_text = right.string ? right.string : "";
             else if (right.type == VALUE_NUMBER)
+            {
                 snprintf(
-                    right_text,
-                    sizeof(right_text),
+                    right_number,
+                    sizeof(right_number),
                     "%.15g",
                     right.number
                 );
-            else
-                right_text[0] = '\0';
+                right_text = right_number;
+            }
 
-            char buffer[2048];
+            size_t left_length = strlen(left_text);
+            size_t right_length = strlen(right_text);
 
-            snprintf(
-                buffer,
-                sizeof(buffer),
-                "%s%s",
-                left_text,
-                right_text
-            );
+            if (left_length > (size_t)-1 - right_length - 1)
+            {
+                value_free(&left);
+                value_free(&right);
+                return value_none();
+            }
 
+            size_t result_length = left_length + right_length;
+            char *buffer = malloc(result_length + 1);
+
+            if (!buffer)
+            {
+                value_free(&left);
+                value_free(&right);
+                return value_none();
+            }
+
+            memcpy(buffer, left_text, left_length);
+            memcpy(buffer + left_length, right_text, right_length);
+            buffer[result_length] = '\0';
+
+            Value result = value_none();
+            int copied = value_string_try(buffer, &result);
+
+            free(buffer);
             value_free(&left);
             value_free(&right);
 
-            return value_string(buffer);
+            return copied ? result : value_none();
         }
 
         value_free(&left);
@@ -2392,8 +2482,36 @@ static void execute_repeat(Statement *statement)
         return;
     }
 
-    int repetitions =
-        (int)count.number;
+    if (
+        !isfinite(count.number) ||
+        count.number < (double)INT_MIN ||
+        count.number > (double)INT_MAX
+    )
+    {
+        set_runtime_error(
+            statement->count,
+            "repeat count must be a finite number within the supported integer range"
+        );
+
+        value_free(&count);
+        return;
+    }
+
+    int repetitions = (int)count.number;
+
+    if (
+        statement->repeat_additional &&
+        repetitions == INT_MAX
+    )
+    {
+        set_runtime_error(
+            statement->count,
+            "repeat count is too large"
+        );
+
+        value_free(&count);
+        return;
+    }
 
     if (statement->repeat_additional)
         repetitions++;

@@ -194,22 +194,14 @@ static Expr *make_call(
     Expr *expr = new_expr(EXPR_CALL);
 
     expr->call_name = strdup(name);
-    expr->call_argument_count = argument_count;
-
-    if (argument_count > 0)
+    if (!expr->call_name)
     {
-        expr->call_arguments =
-            malloc((size_t)argument_count * sizeof(Expr *));
-
-        if (!expr->call_arguments)
-        {
-            fprintf(stderr, "LOIS: out of memory\\n");
-            exit(1);
-        }
-
-        for (int i = 0; i < argument_count; i++)
-            expr->call_arguments[i] = arguments[i];
+        fprintf(stderr, "LOIS: out of memory\\n");
+        exit(1);
     }
+
+    expr->call_argument_count = argument_count;
+    expr->call_arguments = arguments;
 
     return expr;
 }
@@ -848,6 +840,10 @@ static Expr *parse_primary(void)
                     "LOIS: expected ')' after function arguments\\n"
                 );
 
+                for (int i = 0; i < argument_count; i++)
+                    free_expr(arguments[i]);
+
+                free(arguments);
                 free(name);
                 return NULL;
             }

@@ -1,0 +1,41 @@
+output is "TEST 1: NUMBER EQUALITY"
+a = 10
+if a == 10
+then output is "PASS"
+else output is "FAIL"
+
+output is "TEST 2: NUMBER INEQUALITY"
+if a != 20
+then output is "PASS"
+else output is "FAIL"
+
+output is "TEST 3: GREATER THAN"
+if a > 5
+then output is "PASS"
+else output is "FAIL"
+
+output is "TEST 4: LESS THAN"
+if a < 20
+then output is "PASS"
+else output is "FAIL"
+
+output is "TEST 5: BOOLEAN TRUE"
+if True
+then output is "PASS"
+else output is "FAIL"
+
+output is "TEST 6: BOOLEAN FALSE"
+if False
+then output is "FAIL"
+else output is "PASS"
+
+output is "TEST 7: STRING EQUALITY"
+player is "rock"
+if player == "rock"
+then output is "PASS"
+else output is "FAIL"
+
+output is "TEST 8: STRING INEQUALITY"
+if player != "paper"
+then output is "PASS"
+else output is "FAIL"

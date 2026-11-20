@@ -1,0 +1,8 @@
+numbers is {10,20,30,40,50}
+i = 1
+
+while i <= 5
+then input = numbers(i)
+then i++
+
+output is numbers

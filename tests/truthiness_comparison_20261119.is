@@ -1,0 +1,36 @@
+age = 15
+output is "CHAINED COMPARISONS"
+output = 1 < age < 18
+output = 1 < age < 10
+output = 18 <= age <= 18
+output = 10 < age < 20
+
+output is "NUMBER TRUTHINESS"
+zero = 0
+nonzero = 5
+if zero
+then output is "FAIL: zero should be false"
+else output is "PASS: zero is false"
+if nonzero
+then output is "PASS: nonzero is true"
+else output is "FAIL: nonzero should be true"
+
+output is "STRING TRUTHINESS"
+empty_text is ""
+filled_text is "LOIS"
+if empty_text
+then output is "FAIL: empty string should be false"
+else output is "PASS: empty string is false"
+if filled_text
+then output is "PASS: nonempty string is true"
+else output is "FAIL: nonempty string should be true"
+
+output is "SET TRUTHINESS"
+empty_set is {}
+filled_set is {1}
+if empty_set
+then output is "FAIL: empty set should be false"
+else output is "PASS: empty set is false"
+if filled_set
+then output is "PASS: nonempty set is true"
+else output is "FAIL: nonempty set should be true"

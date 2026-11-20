@@ -1,0 +1,37 @@
+output is "TEST A: NUMERIC ASSIGNMENT"
+
+x = 10
+
+if x == 10
+then output is "PASS_EQUALS_ASSIGNMENT"
+else output is "FAIL_EQUALS_ASSIGNMENT"
+
+
+output is "TEST B: IS ASSIGNMENT"
+
+y is 10
+
+if y == 10
+then output is "PASS_IS_ASSIGNMENT"
+else output is "FAIL_IS_ASSIGNMENT"
+
+
+output is "TEST C: GREATER EQUAL"
+
+z = 30
+
+if z >= 20
+then output is "PASS_GREATER_EQUAL"
+else output is "FAIL_GREATER_EQUAL"
+
+
+output is "TEST D: NESTED CONDITIONAL"
+
+a = 10
+b = 20
+
+if a == 10
+then if b == 20
+then output is "PASS_NESTED"
+else output is "FAIL_INNER"
+else output is "FAIL_OUTER"

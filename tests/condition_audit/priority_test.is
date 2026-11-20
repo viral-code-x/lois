@@ -1,0 +1,22 @@
+x is 10
+
+output is "CASE A"
+
+if x == 1
+then output is "FIRST"
+else if x == 10
+then output is "ELSE IF"
+but if x == 10
+then output is "BUT IF"
+else output is "ELSE"
+
+
+output is "CASE B"
+
+if x == 1
+then output is "FIRST"
+but if x == 10
+then output is "BUT IF"
+else if x == 10
+then output is "ELSE IF"
+else output is "ELSE"

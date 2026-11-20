@@ -1,0 +1,4 @@
+i = 1
+while i <= 3
+then output = i
+then i = i + 1

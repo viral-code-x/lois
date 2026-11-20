@@ -1,0 +1,23 @@
+x is 0
+
+while x < 3
+then if x == 0
+then output is "LOOP ZERO"
+else if x == 1
+then output is "LOOP ONE"
+else output is "LOOP TWO"
+then x = x + 1
+
+
+function classify(x) = if x > 10 then 1 else 0
+
+if classify(15) == 1
+then output is "PASS: FUNCTION CONDITION"
+else output is "FAIL: FUNCTION CONDITION"
+
+
+if True
+then if False
+then output is "FAIL: INNER TRUE"
+else output is "PASS: INNER ELSE"
+else output is "FAIL: OUTER ELSE"

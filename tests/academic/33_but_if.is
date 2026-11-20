@@ -1,0 +1,6 @@
+x = 7
+if x < 5
+then output is below five
+but if x < 10
+then output is below ten
+else output is ten or above

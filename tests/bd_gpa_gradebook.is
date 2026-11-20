@@ -1,0 +1,59 @@
+students is {}
+physics is {}
+chemistry is {}
+math is {}
+biology is {}
+gpa is {}
+
+i = 1
+
+output is "BANGLADESH GPA GRADEBOOK"
+output is "Enter grade points: 5, 4, 3.5, 3, 2, 1 or 0"
+output is " "
+
+while i <= 5
+then output is "Enter student information"
+then input is students(i) with "Student name: "
+then input = physics(i) with "Physics grade point: "
+then input = chemistry(i) with "Chemistry grade point: "
+then input = math(i) with "Math grade point: "
+then input = biology(i) with "Biology grade point (fourth subject): "
+then i++
+
+i = 1
+
+while i <= 5
+then bonus = 0
+then gpa(i) = 0
+then if biology(i) > 2
+then bonus = biology(i) - 2
+then if physics(i) >= 1 and chemistry(i) >= 1 and math(i) >= 1
+then gpa(i) = (physics(i) + chemistry(i) + math(i) + bonus) / 3
+then if gpa(i) > 5
+then gpa(i) = 5
+then i++
+
+i = 1
+
+output is " "
+output is "========== FINAL RESULTS =========="
+
+while i <= 5
+then output is " "
+then output is "Student:"
+then output is students(i)
+then output is "Physics:"
+then output = physics(i)
+then output is "Chemistry:"
+then output = chemistry(i)
+then output is "Math:"
+then output = math(i)
+then output is "Biology:"
+then output = biology(i)
+then if physics(i) < 1 or chemistry(i) < 1 or math(i) < 1
+then output is "RESULT: FAIL"
+then if physics(i) >= 1 and chemistry(i) >= 1 and math(i) >= 1
+then output is "RESULT: PASS"
+then output is "GPA:"
+then output = gpa(i)
+then i++

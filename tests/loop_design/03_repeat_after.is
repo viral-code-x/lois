@@ -1,0 +1,5 @@
+i = 1
+
+output = i
+then i = i + 1
+then repeat 5 times

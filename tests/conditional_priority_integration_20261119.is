@@ -1,0 +1,80 @@
+Square(x) = x * x
+
+output is "TEST 1: ELSE IF PRIORITY"
+choice = 2
+if choice == 1
+then output is "FAIL_ROOT"
+but if choice == 2
+then output is "FAIL_BUT_IF"
+else if choice == 2
+then output is "PASS_ELSE_IF"
+else output is "FAIL_FALLBACK"
+
+output is "TEST 2: PRIORITY IN REVERSE WRITTEN ORDER"
+if choice == 1
+then output is "FAIL_ROOT"
+else if choice == 2
+then output is "PASS_REVERSED_ELSE_IF"
+but if choice == 2
+then output is "FAIL_BUT_IF"
+else output is "FAIL_FALLBACK"
+
+output is "TEST 3: BUT IF FALLTHROUGH"
+if choice == 1
+then output is "FAIL_ROOT"
+else if choice == 3
+then output is "FAIL_ELSE_IF"
+but if choice == 2
+then output is "PASS_BUT_IF"
+else output is "FAIL_FALLBACK"
+
+output is "TEST 4: INNER ELSE"
+outer = 1
+inner = 0
+if outer == 1
+then if inner == 1
+then output is "FAIL_INNER_TRUE"
+else output is "PASS_INNER_ELSE"
+
+else output is "FAIL_OUTER_ELSE"
+
+output is "TEST 5: OUTER ELSE"
+outer = 0
+if outer == 1
+then if inner == 1
+then output is "FAIL_INNER"
+else output is "FAIL_INNER_ELSE"
+else output is "PASS_OUTER_ELSE"
+
+output is "TEST 6: BLANK LINES IN CHAIN"
+if choice == 1
+then output is "FAIL_ROOT"
+
+else if choice == 2
+then output is "PASS_BLANK_LINE_CHAIN"
+
+else output is "FAIL_FALLBACK"
+
+output is "TEST 7: CONDITIONS INSIDE A LOOP"
+i = 1
+total = 0
+while i <= 4
+then if i % 2 == 0
+then total = total + i
+else total = total + 1
+then i = i + 1
+
+if total == 8
+then output is "PASS_LOOP"
+else output is "FAIL_LOOP"
+
+output is "TEST 8: FUNCTIONS AND MATH"
+if Square(3) + 4 == 13
+then output is "PASS_FUNCTION_MATH"
+else output is "FAIL_FUNCTION_MATH"
+
+output is "TEST 9: SET INDEXING IN CONDITIONS"
+numbers is {2,4,6}
+if numbers(2) + 2 == 6
+then output is "PASS_SET_CONDITION"
+else output is "FAIL_SET_CONDITION"

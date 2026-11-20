@@ -1,0 +1,4 @@
+numbers = {10, 20, 30, 40, 50}
+output = numbers(1) + numbers(2)
+output = numbers(3) * 2
+output = numbers(5) - numbers(4)

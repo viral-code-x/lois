@@ -1,0 +1,162 @@
+output is "=== TEST 1: NORMAL SPACING ==="
+
+x is 10
+
+if x == 10
+then output is "LAYOUT_1_TEN"
+
+else if x == 20
+then output is "LAYOUT_1_TWENTY"
+
+else output is "LAYOUT_1_OTHER"
+
+
+output is "=== TEST 2: MULTIPLE BLANK LINES ==="
+
+x is 20
+
+if x == 10
+then output is "LAYOUT_2_TEN"
+
+
+else if x == 20
+then output is "LAYOUT_2_TWENTY"
+
+
+else output is "LAYOUT_2_OTHER"
+
+
+output is "=== TEST 3: COMPACT SPACING ==="
+
+x is 30
+
+if x == 10
+then output is "LAYOUT_3_TEN"
+else if x == 20
+then output is "LAYOUT_3_TWENTY"
+else output is "LAYOUT_3_OTHER"
+
+
+output is "=== TEST 4: NESTED CONDITIONAL ==="
+
+x is 10
+y is 20
+
+if x == 10
+then if y == 20
+then output is "NESTED_BOTH_TRUE"
+else output is "NESTED_INNER_FALSE"
+
+else output is "NESTED_OUTER_FALSE"
+
+
+output is "=== TEST 5: INNER CONDITION FALSE ==="
+
+x is 10
+y is 5
+
+if x == 10
+then if y == 20
+then output is "INNER_TRUE"
+else output is "INNER_FALSE"
+
+else output is "OUTER_FALSE"
+
+
+output is "=== TEST 6: OUTER CONDITION FALSE ==="
+
+x is 5
+y is 20
+
+if x == 10
+then if y == 20
+then output is "INNER_TRUE"
+else output is "INNER_FALSE"
+
+else output is "OUTER_FALSE"
+
+
+output is "=== TEST 7: MULTIPLE ELSE IF ==="
+
+x is 40
+
+if x == 10
+then output is "BRANCH_10"
+else if x == 20
+then output is "BRANCH_20"
+else if x == 30
+then output is "BRANCH_30"
+else if x == 40
+then output is "BRANCH_40"
+else output is "BRANCH_OTHER"
+
+
+output is "=== TEST 8: MULTIPLE BUT IF ==="
+
+x is 30
+
+if x == 10
+then output is "BUT_BRANCH_10"
+but if x == 20
+then output is "BUT_BRANCH_20"
+but if x == 30
+then output is "BUT_BRANCH_30"
+but if x == 40
+then output is "BUT_BRANCH_40"
+else output is "BUT_BRANCH_OTHER"
+
+
+output is "=== TEST 9: MIXED ALTERNATIVE PRIORITY ==="
+
+x is 30
+
+if x == 10
+then output is "MIXED_IF"
+else if x >= 20
+then output is "MIXED_ELSE_IF"
+but if x == 30
+then output is "MIXED_BUT_IF"
+else output is "MIXED_ELSE"
+
+
+output is "=== TEST 10: BUT IF AFTER FAILED ELSE IF ==="
+
+x is 30
+
+if x == 10
+then output is "PRIORITY_IF"
+else if x == 20
+then output is "PRIORITY_ELSE_IF"
+but if x == 30
+then output is "PRIORITY_BUT_IF"
+else output is "PRIORITY_ELSE"
+
+
+output is "=== TEST 11: ALL CONDITIONS FALSE ==="
+
+x is 99
+
+if x == 10
+then output is "FALSE_IF"
+else if x == 20
+then output is "FALSE_ELSE_IF"
+but if x == 30
+then output is "FALSE_BUT_IF"
+else output is "FALSE_FINAL_ELSE"
+
+
+output is "=== TEST 12: THREE LEVEL NESTING ==="
+
+x is 1
+y is 2
+z is 3
+
+if x == 1
+then if y == 2
+then if z == 3
+then output is "THREE_LEVEL_SUCCESS"
+else output is "THREE_LEVEL_INNER_FAILURE"
+else output is "THREE_LEVEL_MIDDLE_FAILURE"
+else output is "THREE_LEVEL_OUTER_FAILURE"
+
+output is "=== END OF CONDITIONAL AUDIT ==="

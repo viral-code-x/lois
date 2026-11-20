@@ -1,0 +1,21 @@
+output is "TEST 1: ABSOLUTE VALUE - NEGATIVE"
+abs is function of if x >= 0 then x else 0 - x
+output is abs(-5)
+
+output is "TEST 2: ABSOLUTE VALUE - POSITIVE"
+output is abs(8)
+
+output is "TEST 3: EXPRESSION FUNCTION"
+square is function of x * x
+output is square(6)
+
+output is "TEST 4: NESTED CONDITIONAL EXPRESSION"
+classify is function of if x > 0 then if x > 10 then 2 else 1 else 0
+output is classify(12)
+output is classify(4)
+output is classify(-3)
+
+output is "TEST 5: LAZY CONDITIONAL BRANCH"
+safe_divide is function of if x == 0 then 0 else 10 / x
+output is safe_divide(0)
+output is safe_divide(2)

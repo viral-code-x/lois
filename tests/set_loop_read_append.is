@@ -1,0 +1,9 @@
+numbers is {}
+i = 1
+
+while i <= 10
+then input = numbers(i)
+then output = numbers(i)
+then i++
+
+output is numbers

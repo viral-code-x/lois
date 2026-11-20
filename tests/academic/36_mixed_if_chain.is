@@ -1,0 +1,8 @@
+x = 3
+if x == 1
+then output is one
+else if x == 2
+then output is two
+but if x == 3
+then output is three
+else output is other

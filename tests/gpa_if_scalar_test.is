@@ -1,0 +1,4 @@
+score = 0
+if 2 > 1
+then score = 7
+output = score

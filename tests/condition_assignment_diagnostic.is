@@ -1,0 +1,7 @@
+a is 10
+output is a
+
+b is 20
+output is b
+
+output = a + b

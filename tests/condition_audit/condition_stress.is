@@ -1,0 +1,123 @@
+output is "TEST 1: BASIC IF"
+
+x is 10
+
+if x == 10
+then output is "PASS: IF TRUE"
+
+if x == 5
+then output is "FAIL: FALSE IF EXECUTED"
+else output is "PASS: FALSE IF FALLBACK"
+
+
+output is "TEST 2: ELSE IF"
+
+if x == 5
+then output is "FAIL: WRONG FIRST BRANCH"
+else if x == 10
+then output is "PASS: ELSE IF"
+else output is "FAIL: ELSE EXECUTED"
+
+
+output is "TEST 3: BUT IF"
+
+if x == 5
+then output is "FAIL: WRONG FIRST BRANCH"
+but if x == 10
+then output is "PASS: BUT IF"
+else output is "FAIL: ELSE EXECUTED"
+
+
+output is "TEST 4: ELSE IF BEFORE BUT IF"
+
+if x == 5
+then output is "FAIL: WRONG FIRST BRANCH"
+else if x == 10
+then output is "PASS: ELSE IF HAS PRIORITY"
+but if x == 10
+then output is "FAIL: BUT IF RAN AFTER MATCH"
+else output is "FAIL: ELSE EXECUTED"
+
+
+output is "TEST 5: MULTIPLE ELSE IF"
+
+if x == 1
+then output is "FAIL: BRANCH 1"
+else if x == 2
+then output is "FAIL: BRANCH 2"
+else if x == 10
+then output is "PASS: BRANCH 3"
+else output is "FAIL: FINAL ELSE"
+
+
+output is "TEST 6: MULTIPLE BUT IF"
+
+if x == 1
+then output is "FAIL: BRANCH 1"
+but if x == 2
+then output is "FAIL: BRANCH 2"
+but if x == 10
+then output is "PASS: BRANCH 3"
+else output is "FAIL: FINAL ELSE"
+
+
+output is "TEST 7: ALL CONDITIONS FALSE"
+
+if x == 1
+then output is "FAIL: FIRST"
+else if x == 2
+then output is "FAIL: SECOND"
+but if x == 3
+then output is "FAIL: THIRD"
+else output is "PASS: FINAL ELSE"
+
+
+output is "TEST 8: NESTED CONDITIONS"
+
+if x == 10
+then if x == 10
+then output is "PASS: NESTED IF"
+else output is "FAIL: NESTED ELSE"
+else output is "FAIL: OUTER ELSE"
+
+
+output is "TEST 9: BOOLEAN OPERATORS"
+
+if x > 5 and x < 20
+then output is "PASS: AND"
+
+if x < 5 or x == 10
+then output is "PASS: OR"
+
+if not False
+then output is "PASS: NOT"
+
+
+output is "TEST 10: STRING COMPARISON"
+
+name is "LOIS"
+
+if name == "LOIS"
+then output is "PASS: STRING EQUALITY"
+else output is "FAIL: STRING EQUALITY"
+
+
+output is "TEST 11: INDEPENDENT CONDITIONS"
+
+if True
+then output is "PASS: FIRST INDEPENDENT IF"
+
+if False
+then output is "FAIL: SECOND INDEPENDENT IF"
+
+if True
+then output is "PASS: THIRD INDEPENDENT IF"
+
+
+output is "TEST 12: BOOLEAN VARIABLES"
+
+enabled is True
+
+if enabled == True
+then output is "PASS: BOOLEAN VARIABLE"
+else output is "FAIL: BOOLEAN VARIABLE"

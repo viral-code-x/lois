@@ -1,0 +1,7 @@
+i = 1
+
+while i <= 3
+then output is "BODY"
+then i++
+
+output is "DONE"

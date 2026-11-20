@@ -1,0 +1,6 @@
+numbers = {3, 6, 9, 12, 15}
+total = 0
+for i = 1, 5, i++
+then total = total + numbers(i)
+output = total
+output = numbers(2) * numbers(4)

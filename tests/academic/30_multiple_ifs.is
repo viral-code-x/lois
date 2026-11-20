@@ -1,0 +1,7 @@
+x = 5
+if x > 2
+then output is first
+if x > 4
+then output is second
+if x > 8
+then output is third

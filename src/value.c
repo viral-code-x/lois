@@ -41,6 +41,7 @@ Value value_number(double number)
 
     value.type = VALUE_NUMBER;
     value.number = number;
+    value.is_radians = 0;
     value.string = NULL;
     value.set.items = NULL;
     value.set.count = 0;
@@ -55,6 +56,7 @@ Value value_bool(int boolean)
 
     value.type = VALUE_BOOL;
     value.number = boolean ? 1 : 0;
+    value.is_radians = 0;
     value.string = NULL;
     value.set.items = NULL;
     value.set.count = 0;
@@ -70,6 +72,7 @@ Value value_set(void)
     value.type = VALUE_SET;
     value.string = NULL;
     value.number = 0;
+    value.is_radians = 0;
 
     value.set.items = NULL;
     value.set.count = 0;
@@ -85,6 +88,7 @@ Value value_none(void)
     value.type = VALUE_NONE;
     value.string = NULL;
     value.number = 0;
+    value.is_radians = 0;
 
     value.set.items = NULL;
     value.set.count = 0;
@@ -179,6 +183,7 @@ int value_copy_try(const Value *source, Value *out)
 
         case VALUE_NUMBER:
             *out = value_number(source->number);
+            out->is_radians = source->is_radians;
             return 1;
 
         case VALUE_BOOL:

@@ -1,0 +1,4 @@
+if True
+then output is "GOOD"
+else if
+then output is "BAD"

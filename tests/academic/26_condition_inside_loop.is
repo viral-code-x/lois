@@ -1,0 +1,3 @@
+for i = 1, 10, i++
+then if i % 2 == 0
+then output = i

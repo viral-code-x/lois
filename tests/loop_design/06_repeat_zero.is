@@ -1,0 +1,2 @@
+repeat 0
+then output is "Should not appear"

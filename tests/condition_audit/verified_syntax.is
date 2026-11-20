@@ -1,0 +1,81 @@
+x is 10
+y is 20
+
+output is "TEST 1: ELSE IF"
+
+if x == 5
+then output is "FAIL 1"
+else if x == 10
+then output is "PASS 1"
+else output is "FAIL 1 ELSE"
+
+
+output is "TEST 2: BUT IF"
+
+if x == 5
+then output is "FAIL 2"
+but if x == 10
+then output is "PASS 2"
+else output is "FAIL 2 ELSE"
+
+
+output is "TEST 3: BLANK LINES"
+
+if x == 5
+then output is "FAIL 3"
+
+else if x == 10
+then output is "PASS 3"
+
+else output is "FAIL 3 ELSE"
+
+
+output is "TEST 4: NESTED IF"
+
+if x == 10
+then if y == 20
+then output is "PASS 4 INNER"
+else output is "FAIL 4 INNER"
+else output is "FAIL 4 OUTER"
+
+
+output is "TEST 5: NESTED ELSE IF"
+
+if x == 5
+then output is "FAIL 5 OUTER"
+else if x == 10
+then if y == 20
+then output is "PASS 5 INNER"
+else output is "FAIL 5 INNER"
+else output is "FAIL 5 FINAL"
+
+
+output is "TEST 6: MIXED CHAIN"
+
+if x == 1
+then output is "FAIL 6 FIRST"
+else if x == 2
+then output is "FAIL 6 SECOND"
+but if x == 10
+then output is "PASS 6 BUT"
+else output is "FAIL 6 FINAL"
+
+
+output is "TEST 7: FALSE CONDITIONS"
+
+if x == 1
+then output is "FAIL 7 FIRST"
+else if x == 2
+then output is "FAIL 7 SECOND"
+but if x == 3
+then output is "FAIL 7 THIRD"
+else output is "PASS 7 ELSE"
+
+
+output is "TEST 8: INDEPENDENT IF"
+
+if x == 10
+then output is "PASS 8 FIRST"
+
+if y == 20
+then output is "PASS 8 SECOND"

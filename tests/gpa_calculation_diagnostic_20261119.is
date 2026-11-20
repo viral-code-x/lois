@@ -1,0 +1,29 @@
+physics is {5, 4, 5}
+chemistry is {4, 4, 5}
+math is {4, 3, 5}
+biology is {5, 5, 5}
+gpa is {}
+i = 1
+bonus = 0
+while i <= 3
+then output is "STUDENT INDEX:"
+then output = i
+then output is "PHYSICS:"
+then output = physics(i)
+then output is "CHEMISTRY:"
+then output = chemistry(i)
+then output is "MATH:"
+then output = math(i)
+then output is "BIOLOGY:"
+then output = biology(i)
+then bonus = 0
+then if biology(i) > 2
+then bonus = biology(i) - 2
+then output is "BONUS:"
+then output = bonus
+then if physics(i) >= 1 and chemistry(i) >= 1 and math(i) >= 1
+then output is "CONDITION PASSED"
+then gpa(i) = (physics(i) + chemistry(i) + math(i) + bonus) / 3
+then output is "GPA:"
+then output = gpa(i)
+then i++

@@ -1,0 +1,10 @@
+numbers is {}
+i = 1
+
+while i <= 100
+then input = numbers(i)
+then i++
+
+output is numbers
+output is numbers(1)
+output is numbers(100)

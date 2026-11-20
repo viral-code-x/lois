@@ -1,0 +1,6 @@
+i = 1
+output = i
+i = i + 1
+output = i
+i = i + 1
+output = i

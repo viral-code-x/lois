@@ -1,0 +1,31 @@
+output is "for with if"
+for i = 1, 4, i++
+then if i % 2 == 0
+then output = i
+output is "after for"
+
+output is "while with if"
+j = 0
+while j < 4
+then j = j + 1
+then if j % 2 == 0
+then output = j
+output is "after while"
+
+output is "repeat with if"
+k = 0
+repeat 4
+then k = k + 1
+then if k % 2 == 0
+then output = k
+output is "after repeat"
+
+output is "three loop types nested"
+a = 0
+for x = 1, 2, x++
+then while a < x
+then a = a + 1
+then repeat 2
+then if a > 0
+then output = a
+output is "all matrix tests finished"

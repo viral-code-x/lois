@@ -1,0 +1,4 @@
+Square(x) = x * x
+Double(x) = x * 2
+output = Square(3) + Double(4)
+output = Square(Double(3))

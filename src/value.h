@@ -25,6 +25,7 @@ struct Value
 
     char *string;
     double number;
+    int is_radians;
 
     ValueSet set;
 };

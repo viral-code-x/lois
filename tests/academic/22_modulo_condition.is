@@ -1,0 +1,4 @@
+i = 2
+if i % 2 == 0
+then output is even
+else output is odd
