@@ -1,7 +1,8 @@
 # LOIS
 
 ## Language Orienting ItSelf
-![image alt](LOIS LOGO.png)
+![image alt](https://github.com/viral-code-x/lois/blob/d5fd5a59ec57a0ce94e05a05ed8708f835abb996/LOIS%20LOGO.png)
+
 **A tutorial manual-inspired programming language designed to make programming more approachable, readable, and understandable for people.**
 
 LOIS is an experimental programming language built around a simple idea:
