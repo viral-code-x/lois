@@ -25,6 +25,161 @@ jobs:
         include:
           - runtime: linux-x64
             runner: ubuntu-22.04
+            binary: lois
+
+          - runtime: windows-x64
+            runner: windows-2022
+            binary: lois.exe
+
+          - runtime: macos-x64
+            runner: macos-26-intel
+            binary: lois
+
+          - runtime: macos-arm64
+            runner: macos-26
+            binary: lois
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up MinGW-w64
+        if: matrix.runtime == 'windows-x64'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-cmake
+            mingw-w64-x86_64-ninja
+
+      - name: Configure LOIS (Windows)
+        if: matrix.runtime == 'windows-x64'
+        shell: msys2 {0}
+        run: |
+          cmake -S . -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_EXE_LINKER_FLAGS="-static"
+
+      - name: Configure LOIS (Linux/macOS)
+        if: matrix.runtime != 'windows-x64'
+        shell: bash
+        run: |
+          cmake -S . -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release
+
+      - name: Compile LOIS (Windows)
+        if: matrix.runtime == 'windows-x64'
+        shell: msys2 {0}
+        run: |
+          cmake --build build --parallel
+
+      - name: Compile LOIS (Linux/macOS)
+        if: matrix.runtime != 'windows-x64'
+        shell: bash
+        run: |
+          cmake --build build --parallel
+
+      - name: Prepare runtime (Windows)
+        if: matrix.runtime == 'windows-x64'
+        shell: msys2 {0}
+        run: |
+          mkdir -p "editors/vscode/runtime/${{ matrix.runtime }}"
+          cp "build/${{ matrix.binary }}" \
+             "editors/vscode/runtime/${{ matrix.runtime }}/${{ matrix.binary }}"
+
+      - name: Prepare runtime (Linux/macOS)
+        if: matrix.runtime != 'windows-x64'
+        shell: bash
+        run: |
+          mkdir -p "editors/vscode/runtime/${{ matrix.runtime }}"
+          cp "build/${{ matrix.binary }}" \
+             "editors/vscode/runtime/${{ matrix.runtime }}/${{ matrix.binary }}"
+
+      - name: Upload runtime
+        uses: actions/upload-artifact@v4
+        with:
+          name: lois-runtime-${{ matrix.runtime }}
+          path: editors/vscode/runtime/${{ matrix.runtime }}/${{ matrix.binary }}
+          if-no-files-found: error
+
+  package-extension:
+    name: Package VS Code Extension
+    runs-on: ubuntu-22.04
+    needs: build-runtime
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download native runtimes
+        uses: actions/download-artifact@v4
+        with:
+          pattern: lois-runtime-*
+          path: runtime-artifacts
+
+      - name: Assemble runtime directory
+        run: |
+          mkdir -p editors/vscode/runtime
+
+          mkdir -p editors/vscode/runtime/linux-x64
+          cp runtime-artifacts/lois-runtime-linux-x64/lois \
+             editors/vscode/runtime/linux-x64/lois
+
+          mkdir -p editors/vscode/runtime/windows-x64
+          cp runtime-artifacts/lois-runtime-windows-x64/lois.exe \
+             editors/vscode/runtime/windows-x64/lois.exe
+
+          mkdir -p editors/vscode/runtime/macos-x64
+          cp runtime-artifacts/lois-runtime-macos-x64/lois \
+             editors/vscode/runtime/macos-x64/lois
+
+          mkdir -p editors/vscode/runtime/macos-arm64
+          cp runtime-artifacts/lois-runtime-macos-arm64/lois \
+             editors/vscode/runtime/macos-arm64/lois
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Package VSIX
+        working-directory: editors/vscode
+        run: npx --yes @vscode/vsce package --no-dependencies
+
+      - name: Upload VSIX
+        uses: actions/upload-artifact@v4
+        with:
+          name: lois-vscode-extension
+          path: editors/vscode/*.vsix
+          if-no-files-found: errorname: Build LOIS Extension Runtimes
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "src/**"
+      - "CMakeLists.txt"
+      - "editors/vscode/**"
+      - ".github/workflows/build-lois-runtimes.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build-runtime:
+    name: Build ${{ matrix.runtime }}
+    runs-on: ${{ matrix.runner }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runtime: linux-x64
+            runner: ubuntu-22.04
             shell: bash
             binary: lois
 
@@ -77,6 +232,162 @@ jobs:
 
       - name: Prepare runtime
         shell: ${{ matrix.shell }}
+        run: |
+          mkdir -p "editors/vscode/runtime/${{ matrix.runtime }}"
+          cp "build/${{ matrix.binary }}" \
+             "editors/vscode/runtime/${{ matrix.runtime }}/${{ matrix.binary }}"
+
+      - name: Upload runtime
+        uses: actions/upload-artifact@v4
+        with:
+          name: lois-runtime-${{ matrix.runtime }}
+          path: editors/vscode/runtime/${{ matrix.runtime }}/${{ matrix.binary }}
+          if-no-files-found: error
+
+  package-extension:
+    name: Package VS Code Extension
+    runs-on: ubuntu-22.04
+    needs: build-runtime
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download native runtimes
+        uses: actions/download-artifact@v4
+        with:
+          pattern: lois-runtime-*
+          path: runtime-artifacts
+
+      - name: Assemble runtime directory
+        run: |
+          mkdir -p editors/vscode/runtime
+
+          mkdir -p editors/vscode/runtime/linux-x64
+          cp runtime-artifacts/lois-runtime-linux-x64/lois \
+             editors/vscode/runtime/linux-x64/lois
+
+          mkdir -p editors/vscode/runtime/windows-x64
+          cp runtime-artifacts/lois-runtime-windows-x64/lois.exe \
+             editors/vscode/runtime/windows-x64/lois.exe
+
+          mkdir -p editors/vscode/runtime/macos-x64
+          cp runtime-artifacts/lois-runtime-macos-x64/lois \
+             editors/vscode/runtime/macos-x64/lois
+
+          mkdir -p editors/vscode/runtime/macos-arm64
+          cp runtime-artifacts/lois-runtime-macos-arm64/lois \
+             editors/vscode/runtime/macos-arm64/lois
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Package VSIX
+        working-directory: editors/vscode
+        run: npx --yes @vscode/vsce package --no-dependencies
+
+      - name: Upload VSIX
+        uses: actions/upload-artifact@v4
+        with:
+          name: lois-vscode-extension
+          path: editors/vscode/*.vsix
+          if-no-files-found: error
+name: Build LOIS Extension Runtimes
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "src/**"
+      - "CMakeLists.txt"
+      - "editors/vscode/**"
+      - ".github/workflows/build-lois-runtimes.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build-runtime:
+    name: Build ${{ matrix.runtime }}
+    runs-on: ${{ matrix.runner }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runtime: linux-x64
+            runner: ubuntu-22.04
+            binary: lois
+
+          - runtime: windows-x64
+            runner: windows-2022
+            binary: lois.exe
+
+          - runtime: macos-x64
+            runner: macos-26-intel
+            binary: lois
+
+          - runtime: macos-arm64
+            runner: macos-26
+            binary: lois
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up MinGW-w64
+        if: matrix.runtime == 'windows-x64'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-cmake
+            mingw-w64-x86_64-ninja
+
+      - name: Configure LOIS (Windows)
+        if: matrix.runtime == 'windows-x64'
+        shell: msys2 {0}
+        run: |
+          cmake -S . -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_EXE_LINKER_FLAGS="-static"
+
+      - name: Configure LOIS (Linux/macOS)
+        if: matrix.runtime != 'windows-x64'
+        shell: bash
+        run: |
+          cmake -S . -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release
+
+      - name: Compile LOIS (Windows)
+        if: matrix.runtime == 'windows-x64'
+        shell: msys2 {0}
+        run: |
+          cmake --build build --parallel
+
+      - name: Compile LOIS (Linux/macOS)
+        if: matrix.runtime != 'windows-x64'
+        shell: bash
+        run: |
+          cmake --build build --parallel
+
+      - name: Prepare runtime (Windows)
+        if: matrix.runtime == 'windows-x64'
+        shell: msys2 {0}
+        run: |
+          mkdir -p "editors/vscode/runtime/${{ matrix.runtime }}"
+          cp "build/${{ matrix.binary }}" \
+             "editors/vscode/runtime/${{ matrix.runtime }}/${{ matrix.binary }}"
+
+      - name: Prepare runtime (Linux/macOS)
+        if: matrix.runtime != 'windows-x64'
+        shell: bash
         run: |
           mkdir -p "editors/vscode/runtime/${{ matrix.runtime }}"
           cp "build/${{ matrix.binary }}" \
