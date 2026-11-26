@@ -1,0 +1,99 @@
+{
+  "name": "lois-language",
+  "displayName": "LOIS — Language Orienting ItSelf",
+  "description": "Language support for LOIS (.is): syntax highlighting, code snippets, and run-current-file integration.",
+  "version": "0.1.1",
+  "publisher": "viral-code-x",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Snippets"
+  ],
+  "keywords": [
+    "lois",
+    "programming-language",
+    "language-orienting-itself"
+  ],
+  "icon": "images/lois-icon.png",
+  "main": "./src/extension.js",
+  "extensionKind": [
+    "workspace"
+  ],
+  "activationEvents": [
+    "onLanguage:lois",
+    "onCommand:lois.runFile"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "lois",
+        "aliases": [
+          "LOIS",
+          "lois"
+        ],
+        "extensions": [
+          ".is"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "lois",
+        "scopeName": "source.lois",
+        "path": "./syntaxes/lois.tmLanguage.json"
+      }
+    ],
+    "snippets": [
+      {
+        "language": "lois",
+        "path": "./snippets/lois.json"
+      }
+    ],
+    "commands": [
+      {
+        "command": "lois.runFile",
+        "title": "LOIS: Run Current File",
+        "icon": "$(play)"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "lois.runFile",
+          "when": "resourceLangId == lois",
+          "group": "navigation"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "lois.runFile",
+        "key": "ctrl+f5",
+        "mac": "cmd+f5",
+        "when": "editorTextFocus && editorLangId == lois"
+      }
+    ],
+    "configuration": {
+      "title": "LOIS",
+      "properties": {
+        "lois.executable": {
+          "type": "string",
+          "default": "",
+          "description": "Path to the LOIS interpreter. Leave empty for automatic workspace detection."
+        }
+      }
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/viral-code-x/lois"
+  },
+  "homepage": "https://github.com/viral-code-x/lois/tree/main/editors/vscode",
+  "bugs": {
+    "url": "https://github.com/viral-code-x/lois/issues"
+  }
+}

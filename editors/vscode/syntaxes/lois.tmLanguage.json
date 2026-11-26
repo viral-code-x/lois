@@ -1,0 +1,86 @@
+{
+    "scopeName": "source.lois",
+    "name": "LOIS",
+    "patterns": [
+        {
+            "name": "comment.line.lois",
+            "match": "(?i:\\bnote:.*$)"
+        },
+        {
+            "name": "comment.block.lois",
+            "begin": "\\[",
+            "end": "\\]"
+        },
+        {
+            "name": "string.quoted.double.lois",
+            "begin": "\"",
+            "end": "\"",
+            "patterns": [
+                {
+                    "name": "constant.character.escape.lois",
+                    "match": "\\\\."
+                }
+            ]
+        },
+        {
+            "name": "keyword.control.conditional.lois",
+            "match": "(?i:\\b(?:else\\s+if|but\\s+if)\\b)"
+        },
+        {
+            "name": "constant.language.boolean.lois",
+            "match": "(?i:\\b(?:True|False)\\b)"
+        },
+        {
+            "name": "constant.numeric.lois",
+            "match": "(?<![A-Za-z_])(?:\\d+\\.?\\d*|\\.\\d+)(?![A-Za-z_])"
+        },
+        {
+            "name": "keyword.control.lois",
+            "match": "(?i:\\b(?:if|else|while|for|repeat|stop|skip)\\b)"
+        },
+        {
+            "name": "keyword.other.lois",
+            "match": "(?i:\\b(?:then|is|with|and|or|not|num|text)\\b)"
+        },
+        {
+            "name": "keyword.operator.logical.lois",
+            "match": "(?i:\\b(?:and|or|not)\\b)"
+        },
+        {
+            "name": "support.function.builtin.lois",
+            "match": "(?i:\\b(?:abs|round|floor|ceil|root|root3|root4|root5|sin|cos|tan|log|ln|rad)\\b(?=\\s*\\())"
+        },
+        {
+            "name": "constant.language.math.lois",
+            "match": "(?i:\\bpi\\b)"
+        },
+        {
+            "name": "keyword.control.io.lois",
+            "match": "(?i:\\b(?:input|output)\\b)"
+        },
+        {
+            "name": "entity.name.function.lois",
+            "match": "\\b[A-Za-z_][A-Za-z0-9_]*(?=\\s*\\([^()\\n]*\\)\\s*=)"
+        },
+        {
+            "name": "entity.name.variable.set.lois",
+            "match": "\\b[A-Za-z_][A-Za-z0-9_]*(?=\\s*(?:(?i:is)\\s*)?\\{)"
+        },
+        {
+            "name": "variable.function.lois",
+            "match": "\\b[A-Za-z_][A-Za-z0-9_]*(?=\\s*\\()"
+        },
+        {
+            "name": "keyword.operator.lois",
+            "match": "\\+\\+|--|==|!=|>=|<=|\\+|-|\\*|/|%|\\^|>|<|=|!"
+        },
+        {
+            "name": "punctuation.section.set.lois",
+            "match": "[{}()]"
+        },
+        {
+            "name": "punctuation.separator.comma.lois",
+            "match": ","
+        }
+    ]
+}

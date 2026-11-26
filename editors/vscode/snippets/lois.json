@@ -1,0 +1,94 @@
+{
+    "LOIS Hello World": {
+        "prefix": "hello",
+        "body": [
+            "output is Hello world"
+        ],
+        "description": "The classic first LOIS program"
+    },
+    "LOIS Numeric Output": {
+        "prefix": "outnum",
+        "body": [
+            "output = ${1:2 + 3}"
+        ],
+        "description": "Display a numeric expression"
+    },
+    "LOIS Text Assignment": {
+        "prefix": "textvar",
+        "body": [
+            "${1:name} is ${2:Alex}"
+        ],
+        "description": "Assign a text value"
+    },
+    "LOIS Numeric Assignment": {
+        "prefix": "numvar",
+        "body": [
+            "${1:age} = ${2:17}"
+        ],
+        "description": "Assign a numeric expression"
+    },
+    "LOIS If Else": {
+        "prefix": "ifelse",
+        "body": [
+            "if ${1:condition}",
+            "then ${2:output is Condition is true}",
+            "else",
+            "then ${3:output is Condition is false}"
+        ],
+        "description": "Conditional with an alternative branch"
+    },
+    "LOIS While Loop": {
+        "prefix": "whileloop",
+        "body": [
+            "${1:i} = ${2:1}",
+            "while ${1:i} <= ${3:5}",
+            "then output = ${1:i}",
+            "then ${1:i} = ${1:i} + 1"
+        ],
+        "description": "While loop using explicit then statements"
+    },
+    "LOIS For Loop": {
+        "prefix": "forloop",
+        "body": [
+            "for ${1:i} = ${2:1}, ${3:5}, ${1:i}++",
+            "then output = ${1:i}"
+        ],
+        "description": "Counted for loop"
+    },
+    "LOIS Repeat Loop": {
+        "prefix": "repeatloop",
+        "body": [
+            "repeat ${1:5}",
+            "then output is ${2:Hello}"
+        ],
+        "description": "Repeat a statement a specified number of times"
+    },
+    "LOIS Function": {
+        "prefix": "function",
+        "body": [
+            "${1:Square}(x) = x * x"
+        ],
+        "description": "Define an expression-based function"
+    },
+    "LOIS Set": {
+        "prefix": "set",
+        "body": [
+            "${1:numbers}{${2:10}, ${3:20}, ${4:30}}"
+        ],
+        "description": "Create a LOIS set"
+    },
+    "LOIS Set Access": {
+        "prefix": "setaccess",
+        "body": [
+            "output = ${1:numbers}(${2:1})"
+        ],
+        "description": "Access a set element using one-based indexing"
+    },
+    "LOIS Comment": {
+        "prefix": "note",
+        "body": [
+            "note: ${1:Explain this section}"
+        ],
+        "description": "Write a single-line LOIS comment"
+    }
+}
