@@ -1,6 +1,6 @@
 {
-  "name": "lois-language",
-  "displayName": "LOIS — Language Orienting ItSelf",
+  "name": "lois-demo-vscode",
+  "displayName": "LOIS \u2014 Language Orienting ItSelf",
   "description": "Language support for LOIS (.is): syntax highlighting, code snippets, and run-current-file integration.",
   "version": "0.1.1",
   "publisher": "viral-code-x",
